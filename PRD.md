@@ -114,7 +114,7 @@ The source system sends the event to Notification Hub via POST /events.
 
 ### FR-03 Notification Inbox (End User)
 - GET /notifications/me returns notifications belonging only to the logged-in user (filtered by user_id from the token)
-Supports filtering by read/unread status and simple pagination (limit/offset)
+- Supports filtering by read/unread status and simple pagination (limit/offset)
 - Displays title, type, priority, source, read status, and received time
 
 ### FR-04 Mark as Read
@@ -161,12 +161,12 @@ Supports filtering by read/unread status and simple pagination (limit/offset)
 
 ### NFR-02 Security
 - Every user-facing endpoint (/notifications/me, /preferences) must require authentication before access (JWT or session)
-- POST /events must validate the API key on every request — no shortcuts, even during development/demo
-- Passwords and API keys must never be stored as plain text in the database (must be hashed/encrypted)
+- POST /events must validate the request signature on every request — no shortcuts, even during development/demo
+- Passwords and source-system shared secrets must never be stored as plain text in the database (must be hashed/encrypted)
 - Admin endpoints (/deliveries, /retry) must check role, not just whether the user is logged in
 
 ### NFR-03 Availability
-- If Analytics or the AI summarization service is unreachable, the core system (receiving events, showing the inbox, marking as read) must continue to work normally — neither of these two components should be allowed to bring down the whole system
+-If Analytics or the AI summarization service is unreachable, the core system (receiving events, showing the inbox, marking as read) must continue to work normally — neither of these two components should be allowed to bring down the whole system
 - The goal is for the system to stay usable throughout a demo/exam session, without needing production-grade SLAs
 
 ### NFR-04 Cost
@@ -178,10 +178,10 @@ Supports filtering by read/unread status and simple pagination (limit/offset)
 ## 7. Business Rules
 
 ### BR-01 Deduplication via eventId
-eventId must be unique per source system (enforced with a unique constraint in the DB). If duplicated, the system returns the original result without creating a new notification.
+must be unique per source system (enforced with a unique constraint in the DB). If duplicated, the system returns the original result without creating a new notification.
 
 ### BR-02 Authentication via API Key
-Only accept events from source systems with a pre-registered API key.
+Only accept events whose signature (HMAC computed with the source system's pre-registered shared secret) matches the request body. A missing or invalid signature is always rejected, regardless of how plausible the payload looks.
 
 ### BR-03 User Preferences Override a Valid Event
 Even if an event passes all validation steps, if the user has opted out of that category, the system must not create a visible notification for them.
