@@ -373,45 +373,84 @@ Analytics
 ## 13. Error Handling
 
 ### Expected Errors
+- 401 Unauthorized: Invalid or unregistered API key.
+- Duplicate eventId: Return the original result without creating a duplicate notification.
+- Invalid payload: Reject the event and identify the missing required field.
+- Invalid userId: Reject the event and log the error.
+- Notification already delivered: Reject retry request.
+- Maximum retry exceeded: Set delivery status to failed_permanent.
 
 ### Failure Scenarios
-
+- External system sends an invalid API key.
+- External system sends a duplicate event.
+- Required event fields are missing.
+- Target user does not exist.
+- Notification delivery fails.
+- AI summarization service is unavailable.
+- Analytics service is unavailable.
 ---
 
 ## 14. Deployment
 
 ### Development
-
+- Deploy and test the system using development environment settings.
+- Use free-tier services where possible.
+- Test API endpoints, database operations, authentication, and notification delivery.
+- AI summarization should be limited to designated low-risk categories.
 ### Production
+- Deploy the Notification Hub with secure authentication and API key validation.
+- Ensure database indexes are configured for userId and eventId.
+- Monitor system health using GET /health.
+- Ensure the core notification system continues to work if AI or Analytics services are unavailable.
 
 ---
 
 ## 15. Constraints
 
 - Budget
+  - Limited project budget.
+  - AI API usage should be minimized.
 - Time
+   - The system must be completed within the project timeline.
 - Team
+  - Development is limited to the available team members and their assigned responsibilities.
 - Free Tier
+ - Prefer free-tier services for hosting, database, and AI services where possible.
+ - AI summarization should be limited to designated categories and summaries can be cached to reduce API usage.
 
 ---
 
 ## 16. Risks
 
 | Risk | Impact | Mitigation |
-|---|---|---|
+| ---- | ------ | ---------- |
+| Invalid API key or unauthorized event | Event may be rejected | Validate API key on every request |
+| Duplicate events | Duplicate notifications may be created | Use unique eventId constraint |
+| Notification delivery failure | User may not receive important information | Provide retry mechanism with a maximum of 5 retries |
+| AI service unavailable | Notification summarization may fail | Fall back to the original notification text |
+| Analytics service unavailable | Analytics data may not be processed immediately | Store data in analytics_events table and allow Analytics to pull it later |
+| Unauthorized access | User or system data may be exposed | Use authentication, authorization, and role-based access control |
+| High AI API cost | Project may exceed budget | Limit AI to low-risk categories and cache summaries |
 
 ---
 
 ## 17. Acceptance Criteria
 
 ### MVP is complete when:
+- [ ] External systems can submit valid events through POST /events with API key verification and duplicate event checking.
+- [ ] Users can view notifications, manage preferences, and mark notifications as read.
+- [ ] Administrators can view delivery status, retry failed deliveries, and monitor system health.
+- [ ] Failed events and deliveries are logged and handled correctly.
+- [ ] AI summarization works only for designated low-risk categories and falls back to the original text when unavailable.
+- [ ] Security and access control requirements are implemented for users, administrators, and external systems.
 
-- [ ]
-- [ ]
-- [ ]
 
 ---
 
 ## 18. Future Improvements
 
--
+- Add SMS and mobile push notifications.
+- Add smarter notification relevance and ranking.
+- Add deeper analytics for notification reading behavior.
+- Improve AI summarization and personalization.
+- Add more notification channels based on user preferences.
