@@ -203,44 +203,114 @@ A source system can only submit event content. The decision of who receives it a
 ## 8. Data Model
 
 ### User
+- userId
+- name
+- email
+- role
 
 ### Entity A
-
+**Notification**
+- notificationId
+- userId
+- eventId
+- category
+- title
+- type
+- priority
+- source
+- status
+- receivedAt
+- deadline
 ### Entity B
+**Preference**
+- preferenceId
+- userId
+- category
+- channel
+- enabled
+- updatedAt
+  **Other Entities**
+- Delivery
+- EventReceipt
+- SourceSystem
+- RejectedEventLog
+- AnalyticsEvent
 
 ---
 
 ## 9. Architecture
 
 ### Architecture Overview
+Notification Hub uses a centralized architecture. External systems send events through the POST /events API. The Backend validates the API key, checks required fields, prevents duplicate events using eventId, checks user preferences, and creates notifications. Users can view and manage notifications through the Frontend, while Administrators can monitor delivery status, retry failed deliveries, and check system health.
 
 ### Architecture Diagram
-
+External Systems
+        ↓
+   POST /events
+        ↓
+Backend / API
+        ↓
+Signature / API Key Verification
+        ↓
+Payload Validation + Deduplication
+        ↓
+Check User Preferences
+        ↓
+Notification
+        ↓
+Database
+        ↓
+Notification Inbox
+        ↓
+Analytics
 ### Components
 
 #### Frontend
-
+- Notification Inbox
+- Delivery Preferences
+- Operations Monitor
 #### Backend
-
+- REST API
+- Event Validation
+- API Key Verification
+- Event Deduplication
+- Notification Routing
+- Delivery Management
+- Retry Mechanism
+- AI Summarization
+- Health Check
 #### Database
+- User
+- Notification
+- Preference
+- Delivery
+- EventReceipt
+- SourceSystem
+- RejectedEventLog
+- AnalyticsEvent
 
 #### Authentication
+- JWT or Session for End Users
+- API Key for External Systems
+- Role-based access control for Administrators
 
 #### Storage
-
+- Database for users, notifications, preferences, deliveries, events, and logs
+- analytics_events table for Analytics data
 #### External Services
-
+- External University Systems
+- AI API for low-risk notification summarization
+- Analytics System
 ---
 
 ## 10. Technology Stack
-
-| Layer | Technology | Reason |
-|---|---|---|
-| Frontend | | |
-| Backend | | |
-| Database | | |
-| Auth | | |
-| Hosting | | |
+| Layer    | Technology | Reason        |
+| -------- | ---------- | ------------- |
+| Frontend | TBD        | Build Notification Inbox, Delivery Preferences, and Operations Monitor |
+| Backend  | TBD        | Handle REST APIs, event validation, notification routing, delivery, and retry |
+| Database | TBD        | Store users, notifications, preferences, deliveries, events, and logs |
+| Auth     | JWT / Session / API Key | Authenticate users and external systems and control access |
+| Hosting  | TBD        | Deploy and run the Notification Hub system |
 
 ---
 
