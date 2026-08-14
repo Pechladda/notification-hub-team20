@@ -122,10 +122,13 @@ The source system sends the event to Notification Hub via POST /events.
 - Must be callable repeatedly without error (idempotent)
 - Must verify that id actually belongs to the logged-in user before allowing the update (prevents marking another user's notification as read by guessing the id)
 
-### FR-05 Manage Preferences
+### FR-05 Manage Preferences & Deliver via Email
 - PATCH /preferences lets a user set opt-in/opt-out per category, and choose a channel per category: in-app, email, or both
-- Changes only take effect for notifications created after the change is saved not retroactively
+- Changes only take effect for notifications created after the change is saved — not retroactively
 - If a user has never set a preference for a given category, the system defaults to opted in, in-app only, so the user doesn't miss important information while avoiding unsolicited email by default
+- When a notification's preference includes the email channel, the backend sends the notification content to the user's registered email address using a transactional email provider (e.g. SMTP via a free-tier service)
+- Email delivery is tracked as its own Delivery record (Section 8) separate from the in-app delivery, so a failure in one channel does not block or falsely mark the other channel as failed
+- If the email provider call fails, retry it using the same retry rule as FR-07 (max 5 attempts, then failed_permanent) — the in-app notification is unaffected either way
 
 ### FR-06 View Delivery Status (Admin)
 - GET /deliveries/{id} shows the status of a single delivery attempt (one per channel): pending / delivered / failed / failed_permanent
