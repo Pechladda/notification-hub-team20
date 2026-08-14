@@ -1,4 +1,4 @@
-# Product Requirements & Architecture Design Document (PRD & ADD)
+# Product Requirements Document
 
 ## Group Members and Roles
 
