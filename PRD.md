@@ -16,28 +16,27 @@ view, and manage notifications in one place.
 Students who receive notifications through Notification Hub.
 
 They can:
-1.View notifications (GET /notifications/me).
-2.Mark notifications as read (POST /notifications/{id}/read).
-3.View notification details (title, type, priority, source, read state).
-4.Manage notification preferences — channel and category (PATCH /preferences).
+- View notifications (GET /notifications/me).
+- Mark notifications as read (POST /notifications/{id}/read).
+- View notification details (title, type, priority, source, read state).
+- Manage notification preferences — channel and category (PATCH /preferences).
 
 **Administrator**
 Operations staff who monitor and maintain notification delivery. They do not create or send notification content directly — notifications are generated only from events submitted by external platforms.
 
 They can:
-1.View notification delivery status (GET /deliveries/{id}).
-2.Retry failed deliveries (POST /notifications/{id}/retry).
-3.Monitor system and integration health (GET /health).
-4.Review rejected/duplicate events to distinguish producer errors from delivery errors.
+- View notification delivery status (GET /deliveries/{id}).
+- Retry failed deliveries (POST /notifications/{id}/retry).
+- Monitor system and integration health (GET /health).
+- Review rejected/duplicate events to distinguish producer errors from delivery errors.
 
 **External System**
 University platforms (Enrollment, Timetable, Assignment, Library, etc.) that submit events through Notification Hub.
 
 They can:
-1.Submit events (POST /events), each with a unique eventId.
-2.Rely on signature verification and deduplication before an event becomes a notification.
-3.Receive delivery outcomes indirectly via the notification.delivered event published to Analytics.
-
+- Submit events (POST /events), each with a unique eventId.
+- Rely on signature verification and deduplication before an event becomes a notification.
+- Receive delivery outcomes indirectly via the notification.delivered event published to Analytics.
 They cannot specify individual recipients, channels, or preferences directly — Notification Hub owns routing based on each student's saved preferences.
 
 ### Product Goal
