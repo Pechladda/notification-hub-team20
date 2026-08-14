@@ -147,8 +147,7 @@ Supports filtering by read/unread status and simple pagination (limit/offset)
 - If the AI call errors out or times out, the system must immediately fall back to displaying the original text — do not make the user wait or retry the AI call
 The inbox display order must not depend on AI at all; use the following default sort as the fallback rule: severity (high → low) → deadline (near → far) → received time (newest → oldest)
 
-### FR-10
-- Send Data to Analytics
+### FR-10 Send Data to Analytics
 - After a notification is marked delivered, write a record into an analytics_events table (instead of a real-time push through a full message-queue system, which is beyond the scope of this project)
 - The Analytics side pulls data from this table periodically — if Analytics fails to pull the data, it does not affect the notification's existing delivered status
 
