@@ -336,19 +336,38 @@ Analytics
 ## 11. API / Interfaces
 
 ### API-01
+**POST /events**
+- Receives events from registered external systems.
+- Requires a valid API key.
+- Validates required fields: userId, category, title, priority.
+- Checks duplicate eventId.
+- Returns an error if the API key is invalid, the event is duplicated, or required fields are missing.
 
 ### API-02
-
+**GET /notifications/me**
+- Returns notifications belonging only to the logged-in user.
+- Supports read/unread filtering.
+- Supports simple pagination using limit/offset.
+- Displays title, type, priority, source, read status, and received time.
 ---
 
 ## 12. Security
 
 ### Authentication
-
+- User-facing endpoints require JWT or session authentication.
+- External systems must provide a registered API key when sending events.
+- API keys must be validated on every request.
 ### Authorization
+- End Users can access only their own notifications and preferences.
+- Administrators can access delivery status, retry functions, health checks, and event logs.
+- Admin endpoints must verify the user's role.
+- External systems can access only POST /events.
 
 ### Data Protection
-
+- Passwords and API keys must never be stored as plain text.
+- API keys must be hashed or encrypted.
+- User data must be restricted according to user ID.
+- Administrators should not have access to private notification content beyond what is necessary.
 ---
 
 ## 13. Error Handling
