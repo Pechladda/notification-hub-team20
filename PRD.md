@@ -100,11 +100,11 @@ The source system sends the event to Notification Hub via POST /events.
 ## 5. Functional Requirements
 
 ### FR-01 Receive Events from External Systems
-- POST /events accepts events from source systems (Internship, Job Board, Alumni Network)
-Verify the sender's identity using an API key bound to each source system (stored in a source_systems table) — if the key is invalid or not registered, respond with 401 and do not create a notification
+- POST /events accepts events from the 16 registered source categories (Enrollment, Timetable, Assignment, Submission, Attendance, Library, Maintenance, Events, Advising, Scholarship, Health, Internship, Job Board, Alumni, Security, Insights)
+- Verify the sender's identity using signature verification: each source system has a unique shared secret; the sender computes an HMAC-SHA256 signature over the raw request body and sends it in a header (e.g. X-Signature), and the backend recomputes and compares it before trusting the payload if the signature is missing or does not match, respond with 401 and do not create a notification. This is a required, independently testable check (see Section 13)
 - Check for duplicate eventId using a unique constraint in the database — if it's a duplicate, return the original result instead of creating a new record (protects against a source system accidentally resending the same event)
 - Validate that the payload has all required fields (userId, category, title, priority); if any are missing, reject with an error message stating which field is missing
-- Log every rejected event into a single log table with a reject_reason field (invalid_key / duplicate / invalid_payload), so it can later be checked which side the problem came from
+- Log every rejected event into a single log table (the "Event Receipt" log) with a reject_reason field (invalid_signature / duplicate / invalid_payload), so it can later be checked which side the problem came from
 
 ### FR-02 Create and Route Notifications
 - Once an event passes validation, the system checks the target user's preference for that category
@@ -123,18 +123,19 @@ Supports filtering by read/unread status and simple pagination (limit/offset)
 - Must verify that id actually belongs to the logged-in user before allowing the update (prevents marking another user's notification as read by guessing the id)
 
 ### FR-05 Manage Preferences
-- PATCH /preferences lets a user set opt-in/opt-out per category
-- Changes only take effect for notifications created after the change is saved — not retroactively
-- If a user has never set a preference for a given category, the system defaults to opted in for all categories, so the user doesn't miss important information
+- PATCH /preferences lets a user set opt-in/opt-out per category, and choose a channel per category: in-app, email, or both
+- Changes only take effect for notifications created after the change is saved not retroactively
+- If a user has never set a preference for a given category, the system defaults to opted in, in-app only, so the user doesn't miss important information while avoiding unsolicited email by default
 
 ### FR-06 View Delivery Status (Admin)
-- GET /deliveries/{id} shows status: pending / delivered / failed
+- GET /deliveries/{id} shows the status of a single delivery attempt (one per channel): pending / delivered / failed / failed_permanent
+- A notification with both in-app and email preferences enabled will have two Delivery records — admins can inspect each independently
 - Restricted to admins only (checked via role in the token), and must not return more of the notification's content than necessary
 
 ### FR-07 Retry a Failed Delivery (Admin)
-- POST /notifications/{id}/retry lets an admin trigger a retry for a single item
-- If the notification was already delivered successfully, the system must reject a further retry attempt (check status first)
-- Maximum of 5 retries per notification — beyond that, change the status to failed_permanent and stop retrying automatically (prevents repeated retry attempts from overloading the system)
+- POST /notifications/{id}/retry lets an admin trigger a retry for the notification's failed Delivery record(s) — if only the email channel failed, only that Delivery record is retried; in-app delivery (which cannot meaningfully "fail" once written to the database) is unaffected
+- If a Delivery record was already delivered, the system must reject a further retry attempt for that record (check status first)
+- Maximum of 5 retries per Delivery record — beyond that, change its status to failed_permanent and stop retrying automatically (prevents repeated retry attempts from overloading the system)
 
 ### FR-08 Health Check and Logs
 - GET /health checks whether the database and core services are responsive (e.g., can it ping the DB successfully)
@@ -144,7 +145,7 @@ Supports filtering by read/unread status and simple pagination (limit/offset)
 - Call an AI API (e.g., Claude/OpenAI API) to summarize notifications, but only for categories pre-designated as low-risk (e.g., general announcements, events) — not applied to every category
 - Categories related to deadlines or important matters (e.g., exam results, application closing dates) must always show the full text; they must never be passed through AI summarization
 - If the AI call errors out or times out, the system must immediately fall back to displaying the original text — do not make the user wait or retry the AI call
-The inbox display order must not depend on AI at all; use the following default sort as the fallback rule: severity (high → low) → deadline (near → far) → received time (newest → oldest)
+- The inbox display order must not depend on AI at all; use the following default sort as the fallback rule: severity (high → low) → deadline (near → far) → received time (newest → oldest)
 
 ### FR-10 Send Data to Analytics
 - After a notification is marked delivered, write a record into an analytics_events table (instead of a real-time push through a full message-queue system, which is beyond the scope of this project)
