@@ -228,12 +228,31 @@ A source system can only submit event content. The decision of who receives it a
 - channel
 - enabled
 - updatedAt
-  **Other Entities**
+**Other Entities**
 - Delivery
 - EventReceipt
 - SourceSystem
 - RejectedEventLog
 - AnalyticsEvent
+### Entity C
+**Delivery**
+-deliveryId
+-notificationId
+-status — pending / delivered / failed
+-retryCount
+-createdAt
+-deliveredAt
+### Entity D
+**EventReceipt**
+-eventId
+-sourceSystemId
+-userId
+-category
+-title
+-priority
+-receivedAt
+-status
+  
 
 ---
 
