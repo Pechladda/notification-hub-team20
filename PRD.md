@@ -1,4 +1,12 @@
 # Product Requirements Document
+Group Members and Roles
+
+Name	Student ID	Role
+Nuttida Butthanoo	6731503103	Frontend UX/UI
+Pechladda Duangkaew	6731503112	Backend API and Database
+Montatip Khumphaithoon	6731503028	Quality and Security
+Siriwimon Charoensirisoontorn	6731503125	Delivery and Document
+Thanchanok Kakaew	6731503105	Product Manager
 
 Group Members and Roles
 
