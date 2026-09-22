@@ -1,6 +1,6 @@
 # 🔔 Notification Hub — Team 20
 
-[![Tests](https://img.shields.io/badge/Tests-10%20passed-brightgreen)](#-automated-testing)
+[![Tests](https://img.shields.io/badge/Tests-19%20passed-brightgreen)](#-automated-testing)
 [![Node.js](https://img.shields.io/badge/Node.js-v18%2B-green.svg)](https://nodejs.org/)
 [![Express.js](https://img.shields.io/badge/Express.js-5.x-lightgrey.svg)](https://expressjs.com/)
 [![Database](https://img.shields.io/badge/Database-Supabase%20PostgreSQL-3ECF8E.svg)](https://supabase.com/)
@@ -292,19 +292,26 @@ erDiagram
 
 ## 🚀 REST API Endpoints
 
-**Base URL (Local Development):** `http://localhost:3000`
+**Base URL (Local Development):** `http://localhost:3000`  
+**Base URL (Production Render):** `https://notification-hub-team20.onrender.com`  
+*(All endpoints support `/api/*` prefix and root `/*` paths)*
 
 | Method | Endpoint | Description | Category |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/events` | Ingests an event, validates HMAC signature, and dispatches notifications & deliveries | Event Ingestion (Create) |
-| `GET` | `/notifications/me?user_id=:id` | Retrieves all notifications for a specific user | Notifications (Read) |
-| `GET` | `/deliveries/:id` | Fetches delivery record details and dispatch status | Delivery Tracking (Read) |
-| `PATCH`| `/preferences` | Updates user notification channels and quiet hours | Preferences (Update) |
-| `POST` | `/notifications/:id/read` | Marks a notification as read (updates `read_at`) | Notification Action (Update) |
-| `POST` | `/notifications/:id/retry` | Re-queues a failed delivery for retry | Delivery Action (Update) |
-| `DELETE`| `/notifications/:id` | Deletes a notification (cascades to related deliveries) | Notification Action (Delete) |
-| `GET` | `/health` | Server uptime and health probe | System Health Check |
-| `GET` | `/health/supabase` | Verifies active database connection to Supabase | Database Health Check |
+| `POST` | `/api/notifications` | Direct notification creation per agreed contract | Notifications (Create) |
+| `GET` | `/api/notifications/me?user_id=:id` | Retrieves all notifications for a specific user | Notifications (Read) |
+| `POST` | `/api/notifications/:id/read` | Marks a notification as read (updates `read_at`) | Notification Action (Update) |
+| `POST` | `/api/notifications/:id/retry` | Re-queues a failed delivery for retry | Delivery Action (Update) |
+| `DELETE`| `/api/notifications/:id` | Deletes a notification (cascades to related deliveries) | Notification Action (Delete) |
+| `POST` | `/api/events` | Ingests an event with HMAC signature and deduplication | Event Ingestion (Create) |
+| `POST` | `/api/webhooks/jobboard` | Ingests Webhook/Event from Job Board system | Webhook Receiver |
+| `POST` | `/api/webhooks/:service` | Ingests Webhook/Event from other partner systems | Webhook Receiver |
+| `GET` | `/api/deliveries/:id` | Fetches delivery record details and dispatch status | Delivery Tracking (Read) |
+| `PATCH`| `/api/preferences` | Updates user notification channels and quiet hours | Preferences (Update) |
+| `POST` | `/api/integrations/dispatch-webhook` | Sends outbound webhook dispatch to external system | Outbound Integration |
+| `POST` | `/api/integrations/fetch-external` | Fetches GET data from external system Base URL | Outbound Integration |
+| `GET` | `/api/health` | Server uptime and health probe | System Health Check |
+| `GET` | `/api/health/supabase` | Verifies active database connection to Supabase | Database Health Check |
 
 > Detailed request headers, JSON payloads, and response examples are available in [`docs/api-examples.md`](docs/api-examples.md).
 
@@ -385,7 +392,7 @@ The project includes an automated integration test suite using the Node.js test 
 npm test
 ```
 
-### Test Suite Results (10/10 Passed)
+### Test Suite Results (19/19 Passed)
 
 ```text
 ✔ POST /events should create only in-app delivery when email is disabled
@@ -397,9 +404,18 @@ npm test
 ✔ POST /events should accept a valid signed event
 ✔ POST /events should reject duplicate eventId
 ✔ GET /health should return service health
+✔ GET /api/health and GET /health should both return status ok
+✔ POST /api/integrations/dispatch-webhook should validate required url
+✔ POST /api/integrations/fetch-external should validate required baseUrl
+✔ POST /api/integrations/dispatch-webhook should successfully send HTTP request to target
+✔ POST /api/notifications should reject request with missing fields
+✔ POST /api/notifications should create notification directly
 ✔ PATCH /preferences should update notification preferences
+✔ POST /api/webhooks/jobboard should accept Job Board webhook event
+✔ POST /api/webhooks/jobboard should detect duplicate eventId
+✔ POST /api/webhooks/:service should support other partner services (e.g. internship)
 
-tests 10 | pass 10 | fail 0
+tests 19 | pass 19 | fail 0
 ```
 
 ---

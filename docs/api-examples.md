@@ -359,99 +359,202 @@ HTTP Status:
 
 ---
 
-# 10. CRUD API Summary
+# 10. Direct Create Notification
 
-| Operation | Method | Endpoint | Description |
-|---|---|---|---|
-| Create | POST | `/events` | รับ event และสร้าง notification |
-| Read | GET | `/notifications/me` | อ่าน notifications ของ user |
-| Read | GET | `/deliveries/:id` | อ่าน delivery |
-| Update | PATCH | `/preferences` | แก้ไข notification preferences |
-| Update | POST | `/notifications/:id/read` | Mark notification as read |
-| Update | POST | `/notifications/:id/retry` | Retry failed delivery |
-| Delete | DELETE | `/notifications/:id` | ลบ notification |
+## POST `/api/notifications`
 
----
+ใช้สำหรับระบบภายนอกหรือกลุ่มอื่นที่ต้องการสร้าง Notification โดยตรงตาม contract โดยไม่ต้องผ่าน HMAC event signature
 
-# 11. Security
-
-`POST /events` ใช้ HMAC SHA-256 signature เพื่อยืนยันว่า event มาจาก source ที่ได้รับอนุญาต
-
-Request header:
+### Request
 
 ```http
-x-event-signature
+POST /api/notifications
+Content-Type: application/json
 ```
 
-Webhook secret:
+### Request Body
 
-```text
-EVENT_WEBHOOK_SECRET
+```json
+{
+  "userId": "37ae3a0a-8032-4d67-9e65-f1b6cb50687b",
+  "title": "Application Update",
+  "message": "Your application was approved by the company.",
+  "severity": "medium",
+  "deadline": "2026-10-01T12:00:00.000Z",
+  "metadata": {
+    "source": "JobBoard",
+    "jobId": "job-101"
+  }
+}
 ```
 
-Supabase service-role key:
+- `userId` (required): UUID ของผู้รับ
+- `title` (required): หัวข้อการแจ้งเตือน
+- `message` (required): ข้อความการแจ้งเตือน
+- `severity` (optional): `"low" | "medium" | "high" | "critical"` (ค่าเริ่มต้น `"low"`)
+- `deadline` (optional): วันหมดเวลา (ISO date string)
+- `metadata` (optional): ข้อมูล JSON เพิ่มเติม
 
-```text
-SUPABASE_SERVICE_ROLE_KEY
+### Successful Response
+
+HTTP Status: `201 Created`
+
+```json
+{
+  "status": "created",
+  "notification": {
+    "id": "158dd74b-af54-4c5a-b158-f86a510efead",
+    "user_id": "37ae3a0a-8032-4d67-9e65-f1b6cb50687b",
+    "title": "Application Update",
+    "message": "Your application was approved by the company.",
+    "severity": "medium",
+    "deadline": "2026-10-01T12:00:00.000Z",
+    "metadata": {
+      "source": "JobBoard",
+      "jobId": "job-101"
+    },
+    "created_at": "2026-09-22T10:00:00.000Z"
+  },
+  "deliveries": [
+    {
+      "id": "68778ac0-f9af-4dba-afae-2b2a44ff68a8",
+      "notification_id": "158dd74b-af54-4c5a-b158-f86a510efead",
+      "channel": "in_app",
+      "status": "pending",
+      "attempt_count": 0
+    }
+  ]
+}
 ```
-
-ค่าความลับถูกเก็บไว้ใน `.env`
-
-ไฟล์ `.env` ถูกเพิ่มใน `.gitignore` และไม่ควร commit ขึ้น GitHub
 
 ---
 
-# 12. API Testing
+# 11. External Webhooks (Job Board & Partner Systems)
 
-สามารถรัน automated tests ได้ด้วย:
+## POST `/api/webhooks/jobboard` (หรือ `/api/webhooks/:service`)
+
+ใช้สำหรับรับ Webhook/Event จากระบบภายนอก (เช่น Job Board, Internship, Alumni Network) เพื่อแปลงเป็น Notification ให้อัตโนมัติ
+
+### Request
+
+```http
+POST /api/webhooks/jobboard
+Content-Type: application/json
+```
+
+### Request Body Example
+
+```json
+{
+  "eventId": "jb-evt-2026-001",
+  "eventType": "job.application.status",
+  "userId": "37ae3a0a-8032-4d67-9e65-f1b6cb50687b",
+  "title": "Job Interview Scheduled",
+  "message": "You have been invited for an interview on Friday.",
+  "severity": "high",
+  "data": {
+    "jobTitle": "Backend Developer",
+    "company": "Tech Corp"
+  }
+}
+```
+
+### Successful Response
+
+HTTP Status: `201 Created`
+
+```json
+{
+  "status": "accepted",
+  "service": "JobBoard",
+  "eventReceiptId": "7d6d3701-08fa-4e7a-9a99-4c1264c7ad3f",
+  "notificationId": "158dd74b-af54-4c5a-b158-f86a510efead",
+  "notification": { ... },
+  "deliveries": [ ... ]
+}
+```
+
+*(หากส่ง `eventId` ซ้ำ ระบบจะตอบกลับด้วย `{ "status": "duplicate" }` HTTP 200)*
+
+---
+
+# 12. Outbound Integration Services
+
+## POST `/api/integrations/dispatch-webhook`
+
+ใช้สำหรับให้ Notification Hub ยิง Webhook ส่งต่อกลับไประบบภายนอกของกลุ่มอื่น
+
+```json
+{
+  "url": "https://external-service.onrender.com/webhooks/listener",
+  "method": "POST",
+  "headers": {
+    "Authorization": "Bearer secret-token"
+  },
+  "payload": {
+    "event": "notification.delivered",
+    "notificationId": "158dd74b-af54-4c5a-b158-f86a510efead",
+    "timestamp": "2026-09-22T10:00:00.000Z"
+  }
+}
+```
+
+## POST `/api/integrations/fetch-external`
+
+ใช้สำหรับดึงข้อมูล (Pull) จาก Public Base URL และ GET Endpoint ของกลุ่มอื่น
+
+```json
+{
+  "baseUrl": "https://external-service.onrender.com",
+  "endpoint": "/api/v1/user-status",
+  "headers": {
+    "Authorization": "Bearer external-api-token"
+  },
+  "params": {
+    "userId": "37ae3a0a-8032-4d67-9e65-f1b6cb50687b"
+  },
+  "createNotification": true,
+  "userId": "37ae3a0a-8032-4d67-9e65-f1b6cb50687b"
+}
+```
+
+---
+
+# 13. API Endpoint Summary
+
+ทุก Endpoint รองรับทั้งการเรียกผ่าน prefix `/api/*` และ root `/*`:
+
+| Method | Endpoint | Description | Category |
+|---|---|---|---|
+| POST | `/api/notifications` | สร้าง notification โดยตรงตาม contract | Notification (Create) |
+| GET | `/api/notifications/me` | ดึง notifications ของ user | Notification (Read) |
+| POST | `/api/notifications/:id/read` | Mark notification ว่าอ่านแล้ว | Notification (Update) |
+| POST | `/api/notifications/:id/retry` | Retry failed delivery | Delivery Action (Update) |
+| DELETE | `/api/notifications/:id` | ลบ notification | Notification (Delete) |
+| POST | `/api/events` | รับ event พร้อมตรวจ HMAC signature & deduplication | Event Ingestion (Create) |
+| POST | `/api/webhooks/jobboard` | รับ Webhook จาก Job Board เข้าสู่ระบบ Notification | Webhook Receiver |
+| POST | `/api/webhooks/:service` | รับ Webhook จากระบบภายนอกอื่นๆ | Webhook Receiver |
+| GET | `/api/deliveries/:id` | ตรวจสอบข้อมูลและสถานะ delivery | Delivery (Read) |
+| PATCH | `/api/preferences` | แก้ไข notification preferences | Preference (Update) |
+| POST | `/api/integrations/dispatch-webhook` | ยิง Webhook ส่งต่อกลับไประบบกลุ่มอื่น | Outbound Webhook |
+| POST | `/api/integrations/fetch-external` | ดึงข้อมูล GET จากระบบกลุ่มอื่น | Outbound Data Fetch |
+| GET | `/api/health` | ตรวจสอบสถานะการทำงานของเซิร์ฟเวอร์ | Health Check |
+| GET | `/api/health/supabase` | ตรวจสอบการเชื่อมต่อฐานข้อมูล Supabase | Health Check |
+
+---
+
+# 14. Automated Testing
+
+รัน Automated Test suite ด้วย:
 
 ```powershell
 npm test
 ```
 
-ผลการทดสอบล่าสุด:
+ผลการทดสอบ:
 
 ```text
-tests 10
-pass 10
+tests 19
+pass 19
 fail 0
-```
-
-การทดสอบครอบคลุม:
-
-- Event signature validation
-- Event creation
-- Duplicate event
-- Notification preferences
-- Delivery creation
-- Delivery lookup
-- Mark notification as read
-- Retry failed delivery
-- Delete notification
-- Health check
-
----
-
-# 13. API Flow
-
-```text
-External Service
-       |
-       | POST /events
-       v
-Event Receipt
-       |
-       v
-Notification
-       |
-       +----------------+
-       |                |
-       v                v
-    In-App            Email
-    Delivery          Delivery
-       |                |
-       +-------+--------+
-               |
-               v
-        Delivery Status
 ```
