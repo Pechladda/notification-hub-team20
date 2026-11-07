@@ -17,7 +17,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "notification-hub-db"
-database_id = "notification-hub-db-id"
+database_id = "9dd6d9be-bf57-4e5c-9814-4c817de00ce6"
 migrations_dir = "./cloudflare/migrations"
 
 # Environment Variables
