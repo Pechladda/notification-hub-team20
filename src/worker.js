@@ -930,11 +930,17 @@ export default {
             event_type: eventType,
           };
 
+          const callbackSecret =
+            webhookSecretHeader ||
+            (secret && secret !== "your-event-webhook-secret"
+              ? secret
+              : "a760ac43342d4f7094e0fd90f25f8036");
+
           const callbackResponse = await fetch(JOBBOARD_CALLBACK_URL, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-webhook-secret": secret || "",
+              "x-webhook-secret": callbackSecret,
             },
             body: JSON.stringify(callbackPayload),
           });
