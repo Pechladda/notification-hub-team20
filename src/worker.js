@@ -300,6 +300,13 @@ export default {
           );
         }
 
+        // Auto-create user if not exists (prevent FK constraint error)
+        await env.DB.prepare(
+          "INSERT OR IGNORE INTO users (id, email, display_name, created_at) VALUES (?, ?, ?, ?)"
+        )
+          .bind(targetUserId, `${targetUserId}@placeholder.local`, `User ${targetUserId}`, new Date().toISOString())
+          .run();
+
         // Check user preferences
         const pref = await env.DB.prepare(
           "SELECT in_app_enabled, email_enabled FROM preferences WHERE user_id = ?"
@@ -570,6 +577,13 @@ export default {
           )
           .run();
 
+        // Auto-create user if not exists (prevent FK constraint error)
+        await env.DB.prepare(
+          "INSERT OR IGNORE INTO users (id, email, display_name, created_at) VALUES (?, ?, ?, ?)"
+        )
+          .bind(userId, `${userId}@placeholder.local`, `User ${userId}`, nowIso)
+          .run();
+
         // User preference check
         const pref = await env.DB.prepare(
           "SELECT in_app_enabled, email_enabled FROM preferences WHERE user_id = ?"
@@ -726,6 +740,13 @@ export default {
             signature || null,
             nowIso
           )
+          .run();
+
+        // Auto-create user if not exists (prevent FK constraint error)
+        await env.DB.prepare(
+          "INSERT OR IGNORE INTO users (id, email, display_name, created_at) VALUES (?, ?, ?, ?)"
+        )
+          .bind(userId, `${userId}@placeholder.local`, `User ${userId}`, nowIso)
           .run();
 
         const pref = await env.DB.prepare(
