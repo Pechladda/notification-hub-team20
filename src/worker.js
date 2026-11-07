@@ -779,6 +779,43 @@ export default {
           deliveries.push({ id: dId, channel: "email", status: "pending" });
         }
 
+        // ── Webhook Callback to Job Board (Team 18) ──
+        // After successfully processing the webhook, send acknowledgment back
+        const JOBBOARD_CALLBACK_URL = "https://team18-job-board-api.tawee-dev.workers.dev/api/webhooks/notification";
+        let callbackResult = null;
+
+        try {
+          const callbackPayload = {
+            event_id: eventId,
+            event_type: eventType,
+          };
+
+          const callbackResponse = await fetch(JOBBOARD_CALLBACK_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-webhook-secret": secret || "",
+            },
+            body: JSON.stringify(callbackPayload),
+          });
+
+          callbackResult = {
+            sent: true,
+            status: callbackResponse.status,
+            ok: callbackResponse.ok,
+          };
+
+          console.log(
+            `[Webhook Callback] Sent to Job Board: event_id=${eventId}, event_type=${eventType}, status=${callbackResponse.status}`
+          );
+        } catch (callbackErr) {
+          callbackResult = {
+            sent: false,
+            error: callbackErr.message,
+          };
+          console.error("[Webhook Callback] Failed to send to Job Board:", callbackErr.message);
+        }
+
         return jsonResponse(
           {
             status: "accepted",
@@ -786,6 +823,7 @@ export default {
             eventReceiptId: receiptId,
             notificationId: notifId,
             deliveries,
+            callback: callbackResult,
           },
           201
         );
