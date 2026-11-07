@@ -926,8 +926,13 @@ export default {
 
         try {
           const callbackPayload = {
+            eventId: eventId,
             event_id: eventId,
+            eventType: eventType,
             event_type: eventType,
+            userId: userId,
+            title: title,
+            message: message,
           };
 
           const callbackSecret =
