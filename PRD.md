@@ -341,13 +341,13 @@ Analytics
 ---
 
 ## 10. Technology Stack
-| Layer    | Technology | Reason        |
-| -------- | ---------- | ------------- |
-| Frontend | TBD        | Build Notification Inbox, Delivery Preferences, and Operations Monitor |
-| Backend  | TBD        | Handle REST APIs, event validation, notification routing, delivery, and retry |
-| Database | TBD        | Store users, notifications, preferences, deliveries, events, and logs |
-| Auth     | JWT / Session / API Key | Authenticate users and external systems and control access |
-| Hosting  | TBD        | Deploy and run the Notification Hub system |
+| Layer    | Primary (Cloudflare) | Secondary Backup | Reason        |
+| -------- | ---------- | ------------- | ------------- |
+| Frontend | Cloudflare Pages (HTML5/CSS) | Vercel / Render Static | Zero-config CDN hosting, high performance |
+| Backend  | Cloudflare Workers (Edge Serverless) | Express.js / Node.js | Sub-5ms execution latency, global availability |
+| Database | Cloudflare D1 (SQLite at the Edge) | Supabase (PostgreSQL) | Zero sleep/pausing, SQL relational integrity, edge speed |
+| Auth     | HMAC-SHA256 (Web Crypto) & Bearer | Node.js Crypto HMAC | Authenticate systems and prevent duplicate injections |
+| Hosting  | Cloudflare Edge Platform | Render / Vercel Free Tier | 100% free tier (0 THB), unlimited bandwidth |
 
 ---
 
@@ -421,15 +421,16 @@ Returns the event-reception log filtered by reject_reason, so admins can disting
 ## 14. Deployment
 
 ### Development
-- Deploy and test the system using development environment settings.
-- Use free-tier services where possible.
-- Test API endpoints, database operations, authentication, and notification delivery.
-- AI summarization should be limited to designated low-risk categories.
+- Develop and test locally using Wrangler (`npm run cf:dev`) with local Cloudflare D1 database.
+- Backup development testing available using Node.js Express server (`npm run dev`) and Supabase PostgreSQL.
+- Test API endpoints, database operations, HMAC signatures, and notification delivery.
+
 ### Production
-- Deploy the Notification Hub with secure authentication and API key validation.
-- Ensure database indexes are configured for userId and eventId.
-- Monitor system health using GET /health.
-- Ensure the core notification system continues to work if AI or Analytics services are unavailable.
+- **Primary Deployment Platform:** Cloudflare Workers & Cloudflare D1 edge database (`wrangler deploy`).
+- **Frontend Hosting:** Cloudflare Pages for the static dashboard and interactive integration monitors.
+- **Secondary Backup:** Render / Vercel cloud service connected to Supabase PostgreSQL.
+- Database indexes are configured for `userId`, `read_at`, `notification_id`, and `eventId`.
+- Monitor system health using `GET /api/health` and database health via `GET /api/health/database`.
 
 ---
 

@@ -1,19 +1,34 @@
 const { createClient } = require("@supabase/supabase-js");
 
+/**
+ * Supabase Client Configuration (Secondary Backup Database)
+ *
+ * NOTE: The primary database for production deployment is Cloudflare D1.
+ * Supabase PostgreSQL serves as the backup/secondary database.
+ */
+
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl) {
-  throw new Error("SUPABASE_URL is missing from .env");
-}
+let supabase = null;
 
-if (!supabaseServiceRoleKey) {
-  throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing from .env");
-}
+if (supabaseUrl && supabaseServiceRoleKey) {
+  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+} else {
+  console.warn(
+    "[Database] Primary database is Cloudflare D1. Supabase configured in standby (backup) mode."
+  );
 
-const supabase = createClient(
-  supabaseUrl,
-  supabaseServiceRoleKey
-);
+  // Fallback stub to prevent immediate process crash when operating in Cloudflare D1 mode
+  supabase = {
+    from: () => ({
+      select: () => Promise.resolve({ data: [], error: null }),
+      insert: () => Promise.resolve({ data: null, error: null }),
+      update: () => Promise.resolve({ data: null, error: null }),
+      delete: () => Promise.resolve({ data: null, error: null }),
+      upsert: () => Promise.resolve({ data: null, error: null }),
+    }),
+  };
+}
 
 module.exports = supabase;

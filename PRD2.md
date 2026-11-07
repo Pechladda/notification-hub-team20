@@ -259,44 +259,37 @@ Source systems submit event payloads only; Notification Hub exclusively determin
 
 ## 9. System Architecture & Evaluation
 
-### 9.1 Evaluation of Deployment Options
-
----
-
-#### Option 1: Vercel + Supabase (Selected)
-* **Frontend:** Next.js (React) hosted on Vercel.
-* **Backend/API:** Next.js Serverless API Routes (Node.js) hosted on Vercel.
-* **Database:** Supabase PostgreSQL.
-* **Authentication:** Supabase Auth (JWT) for users + Custom HMAC SHA-256 for external modules.
-* **Storage:** Supabase PostgreSQL Database.
-* **Deployment:** Automated Vercel CI/CD via GitHub integration.
-* **Advantages:**
-  * Single repository and unified TypeScript language for Frontend and Backend API Routes.
-  * Relational database handles unique constraints (`eventId`), preference joins, and data consistency out of the box.
-  * Native Row-Level Security (RLS) simplifies tenant/user data isolation at the DB level.
-* **Disadvantages:**
-  * Cold start overhead on serverless API routes.
-  * Supabase free tier pauses databases after 7 days of inactivity (requires periodic keep-alive pings during active testing/grading).
-* **Major Risks:**
-  * Database connection pool exhaustion under high concurrent requests on free tier (mitigated via Supabase Transaction Pooler).
-
----
-
-#### Option 2: Cloudflare Workers + D1
-* **Frontend:** Cloudflare Pages (React / Static Site).
+### 9.1 Evaluation of Deploy#### Option 2: Cloudflare Workers + D1 (Selected - Primary Deployment)
+* **Frontend:** Cloudflare Pages (HTML5/CSS Dashboard & Static Assets).
 * **Backend/API:** Cloudflare Workers (V8 Edge Serverless Execution).
 * **Database:** Cloudflare D1 (SQLite at the Edge).
-* **Authentication:** Custom JWT Worker Verification + Custom HMAC Verification Worker.
-* **Storage:** Cloudflare D1 (SQL storage) / R2.
+* **Authentication:** HMAC SHA-256 Web Crypto Verification for Webhooks & User Isolation.
+* **Storage:** Cloudflare D1 (Serverless Relational SQL Storage).
 * **Deployment:** Wrangler CLI / Cloudflare Pages GitHub Integration.
 * **Advantages:**
-  * Near-zero cold start latency (< 5ms) and extremely fast global execution.
-  * Very high free-tier daily request quota.
+  * Near-zero cold start latency (< 5ms) and ultra-fast global edge execution.
+  * Very high free-tier daily request quota (100,000 requests/day).
+  * No database auto-pausing after 7 days of inactivity (unlike Supabase free tier).
+  * ACID-compliant relational SQL engine at zero cost.
 * **Disadvantages:**
-  * SQLite (D1) lacks advanced PostgreSQL features (e.g., native JSONB capabilities, built-in RLS policies).
-  * Requires building custom Auth/JWT handling middleware or integrating extra auth services.
+  * SQLite (D1) lacks native JSONB operators (stored as text with SQLite JSON functions).
 * **Major Risks:**
-  * Writing custom access control without native DB-level RLS increases developer error risk in security enforcement.
+  * Edge environment constraints mitigated through Web Crypto API standards.
+
+---
+
+#### Option 1: Vercel / Node.js + Supabase (Secondary - Backup Architecture)
+* **Frontend:** Next.js / Static UI hosted on Vercel or Render.
+* **Backend/API:** Express.js / Node.js API server.
+* **Database:** Supabase PostgreSQL.
+* **Authentication:** Supabase Auth + Custom HMAC SHA-256 for external modules.
+* **Storage:** Supabase PostgreSQL Database.
+* **Deployment:** Automated CI/CD via GitHub integration (Render / Vercel).
+* **Role:** Retained as the designated fallback and secondary backup database.
+* **Advantages:**
+  * Native PostgreSQL features with JSONB support and dashboard UI.
+* **Disadvantages:**
+  * Supabase free tier pauses databases after 7 days of inactivity.
 
 ---
 
@@ -320,45 +313,47 @@ Source systems submit event payloads only; Notification Hub exclusively determin
 
 ### 9.2 Final Architecture Recommendation & Diagram
 
-**Selected Architecture: Option 1 (Vercel + Supabase)**
+**Selected Architecture: Option 2 (Cloudflare Workers + D1)**  
+*(With Option 1: Node.js + Supabase PostgreSQL maintained as Backup Architecture)*
 
 ```
 External Platform Modules (Internship / Job Board / Alumni)
                        │
                POST /events (HMAC Signed)
                        │
-               Backend API (Next.js on Vercel)
+             Cloudflare Workers (Edge API)
                        │
         ┌──────────────┴──────────────┐
-  HMAC Check                    Deduplication
+  HMAC Check (WebCrypto)        Deduplication Check
         └──────────────┬──────────────┘
             User Preference Lookup
                        │
               Insert Notification
                        │
-             Supabase DB (PostgreSQL)
+         Cloudflare D1 (SQLite Edge DB)
+           [Backup: Supabase PostgreSQL]
                        │
         ┌──────────────┴──────────────┐
-  Next.js Inbox UI             Analytics Event Log
+   Cloudflare Pages UI          Delivery Dispatch
 ```
 
 #### Justification:
-1. **Simplicity Over Theoretical Scalability:** Next.js allows a 5-student team to write both Frontend and API Routes in a single repository without cross-repo coordination overhead.
-2. **Relational Integrity for Deduplication:** PostgreSQL strictly enforces unique constraints on `eventId` at the database level, completely preventing duplicate notifications from reaching students.
-3. **Built-in Security (RLS):** Row-Level Security handles data isolation (`recipient_id == auth.uid()`) natively at the database level, preventing unauthorized access bugs.
-4. **Strict 0 THB Alignment:** Runs entirely within Vercel and Supabase Free Tiers, fully meeting budget constraints.
+1. **Ultra-Low Latency & High Concurrency:** Cloudflare Workers start in < 5ms at edge points of presence, providing instant responses for high-frequency webhook dispatches.
+2. **Zero Inactivity Pausing:** Unlike Supabase free tier (which pauses every 7 days without traffic), Cloudflare D1 remains continuously accessible for testing, demonstrations, and grading.
+3. **True Relational Integrity:** Cloudflare D1 provides strict SQL relational tables, unique constraints (`eventId`), foreign-key cascades, and indexed queries.
+4. **Dual Resilience:** By maintaining Cloudflare D1 as primary and Supabase as backup, the service achieves high availability with zero cloud hosting expenses (0 THB).
 
 ---
 
 ## 10. Technology Stack
 
-| Layer | Technology | Reason |
-|---|---|---|
-| Frontend | Next.js (React) + Tailwind CSS | Rapid UI development for Inbox, Preferences, and Admin Operations |
-| Backend | Next.js API Routes (Node.js) | Serverless execution, unified codebase with frontend, zero-server overhead |
-| Database | Supabase (PostgreSQL) | Free tier, PostgreSQL reliability, built-in Row Level Security (RLS)|
-| Auth | Supabase Auth (JWT) & HMAC | Standardized student auth and secure cross-module API signature validation |
-| Hosting | Vercel (Free Tier) | Seamless integration with Next.js, zero deployment cost |
+| Layer | Primary (Cloudflare) | Secondary Backup | Reason |
+|---|---|---|---|
+| Frontend | Cloudflare Pages (HTML5/CSS Dashboard) | Vercel / Render Static | Ultra-fast CDN delivery, zero maintenance overhead |
+| Backend | Cloudflare Workers (V8 Serverless Edge) | Express.js / Node.js | Sub-5ms cold start, native Web Crypto HMAC verification |
+| Database | Cloudflare D1 (SQLite at the Edge) | Supabase (PostgreSQL) | Continuous uptime, ACID relational SQL, no sleep pauses |
+| Auth & Security | HMAC-SHA256 (Web Crypto API) | Crypto HMAC-SHA256 | Cryptographic webhook validation and tenant isolation |
+| Deployment | Wrangler CLI / GitHub Pages CI/CD | Render / Vercel Git CI/CD | Zero-cost serverless deployment (0 THB) |
 
 ---
 
@@ -408,10 +403,13 @@ External Platform Modules (Internship / Job Board / Alumni)
 ## 14. Deployment
 
 ### Development
-- Local development environment using Node.js, `npm run dev`, and a shared Supabase PostgreSQL staging instance.
+- Local development environment using Wrangler (`npm run cf:dev` / `wrangler dev`) with local Cloudflare D1 emulation (`.wrangler/state/v3/d1`).
+- Backup development testing with Node.js Express server (`npm run dev`) and Supabase PostgreSQL.
 
-### Production
-- Automated deployment from GitHub `main` branch directly to Vercel Free Tier.
+### Production Deployment
+- **Primary Platform:** Cloudflare Workers & Cloudflare D1 (`wrangler deploy` or Cloudflare GitHub integration).
+- **Frontend Hosting:** Cloudflare Pages (serving public HTML/CSS/JS dashboard).
+- **Secondary Backup Deployment:** Node.js backend hosted on Render / Vercel connected to Supabase PostgreSQL.
 
 ---
 

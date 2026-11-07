@@ -2,13 +2,15 @@
 
 ## 1. Database Information
 
-| Item | Value |
-|---|---|
-| Database Platform | Supabase |
-| Database Engine | PostgreSQL |
-| Project | Notification Hub Team20 |
-| Region | Asia-Pacific |
-| Schema | public |
+| Item | Primary Deployment | Secondary Backup |
+|---|---|---|
+| Database Platform | Cloudflare D1 | Supabase |
+| Database Engine | SQLite (at the Edge) | PostgreSQL |
+| Database Binding | `env.DB` | `@supabase/supabase-js` |
+| Project / Database Name | `notification-hub-db` | Notification Hub Team20 |
+| Deployment Tooling | Cloudflare Wrangler CLI | Supabase SQL Dashboard |
+| Schema Migration File | `cloudflare/schema.sql` | `supabase/migrations/20260921_create_notification_hub_schema.sql` |
+| Seed Script | `cloudflare/seed.sql` | — |
 
 The Notification Hub database consists of five main tables:
 
@@ -405,19 +407,19 @@ When the same event ID is received again, the API can identify the event as a du
 
 # 11. Database Deployment
 
-The database schema was deployed to the Supabase project:
+## 11.1 Primary Deployment: Cloudflare D1
+- **Platform:** Cloudflare D1 (SQLite Edge Database)
+- **Configuration:** `wrangler.toml`
+- **Migration Script:** `cloudflare/schema.sql` (and `cloudflare/migrations/0001_initial_schema.sql`)
+- **Seed Script:** `cloudflare/seed.sql`
+- **Execution Command (Local):** `npm run d1:migrate`
+- **Execution Command (Remote):** `npm run d1:migrate:remote`
 
-```text
-Notification Hub Team20
-```
-
-Migration file:
-
-```text
-supabase/migrations/20260921_create_notification_hub_schema.sql
-```
-
-The migration creates the five tables and their related constraints.
+## 11.2 Secondary Backup: Supabase PostgreSQL
+- **Platform:** Supabase Cloud (PostgreSQL)
+- **Project:** Notification Hub Team20
+- **Migration Script:** `supabase/migrations/20260921_create_notification_hub_schema.sql`
+- **Role:** Maintained as standby backup database with identical relational structure.
 
 ---
 

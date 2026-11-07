@@ -27,62 +27,42 @@ The backend is implemented using Node.js and Express.js, while the database is h
 
 # 2. Database Selection
 
-## Selected Database: Supabase
+## Selected Primary Database: Cloudflare D1 (SQLite at the Edge)
+### Backup Database: Supabase PostgreSQL
 
-The project uses **Supabase** as the database platform.
+The project deploys on **Cloudflare D1** as the primary database platform, while maintaining **Supabase PostgreSQL** as a secondary backup database.
 
-Supabase provides a PostgreSQL relational database with a web dashboard and Data API.
+Cloudflare D1 is a serverless relational SQL database built on SQLite and distributed across Cloudflare's edge network, directly bound to Cloudflare Workers.
 
-## Reasons for Choosing Supabase
+## Reasons for Choosing Cloudflare D1
 
-### 2.1 Relational Data Model
+### 2.1 Edge Performance & Near-Zero Cold Starts
+Cloudflare D1 runs directly alongside Cloudflare Workers at the edge (< 5ms cold start), providing ultra-low query latency for incoming event webhooks.
 
+### 2.2 Continuous Availability (No Inactivity Pauses)
+Unlike free-tier managed cloud databases that auto-pause after 7 days of inactivity (e.g. Supabase free tier), Cloudflare D1 remains continuously accessible for automated tests, demonstrations, and grading.
+
+### 2.3 Relational Data Model & Integrity
 Notification Hub contains several entities with clear relationships:
-
 - Users
 - Preferences
 - Event Receipts
 - Notifications
 - Deliveries
 
-A relational database is appropriate because these entities can be connected using primary keys and foreign keys.
+D1 provides full relational integrity via SQLite:
+- Primary keys (`TEXT` UUIDs)
+- Foreign keys with `ON DELETE CASCADE` and `ON DELETE SET NULL`
+- Unique constraints (`event_id` and `email`)
+- Check constraints (severities, statuses, delivery channels)
 
-### 2.2 Data Integrity
+### 2.4 Built-in JSON Functions
+The system stores flexible event payloads and notification metadata as JSON text, queryable using SQLite's native `json_extract()` functions.
 
-PostgreSQL supports database constraints such as:
+### 2.5 Secondary Backup Resilience (Supabase PostgreSQL)
+The project also retains Supabase PostgreSQL as a secondary backup database with full schema preservation (`supabase/migrations/20260921_create_notification_hub_schema.sql`).
 
-- Primary keys
-- Foreign keys
-- Unique constraints
-- Check constraints
-- NOT NULL constraints
 
-These constraints help maintain data consistency.
-
-### 2.3 JSONB Support
-
-The system needs to store flexible event and notification information.
-
-PostgreSQL provides the JSONB data type, which is used for:
-
-- Event payload
-- Notification metadata
-
-### 2.4 Remote Cloud Database
-
-Supabase provides a remote PostgreSQL database that can be accessed by the backend application.
-
-This allows the project to demonstrate an actual deployed database instead of only using a local database.
-
-### 2.5 Easy Database Management
-
-The Supabase dashboard provides tools for:
-
-- Creating tables
-- Running SQL queries
-- Viewing table data
-- Checking relationships
-- Managing database constraints
 
 ---
 
@@ -392,41 +372,43 @@ EVENT_RECEIPTS
 
 # 8. Database Deployment
 
-The database was deployed to the remote Supabase project:
+## 8.1 Primary Deployment: Cloudflare D1 (Edge SQL Database)
+
+The primary production database is deployed to **Cloudflare D1**:
 
 ```text
-Notification Hub Team20
+Database Name: notification-hub-db
+Engine: SQLite at the Edge
+Configuration: wrangler.toml
+Migration Script: cloudflare/schema.sql (and cloudflare/migrations/0001_initial_schema.sql)
+Seed Script: cloudflare/seed.sql
+Deployment Tooling: Cloudflare Wrangler CLI
 ```
 
-Database:
+The migration creates the five relational tables with constraints and indexes:
 
 ```text
-Supabase PostgreSQL
+users (id, email, display_name, created_at)
+preferences (user_id, in_app_enabled, email_enabled, quiet_hours_start, quiet_hours_end, updated_at)
+event_receipts (id, event_id, event_type, source_service, payload, signature, status, received_at)
+notifications (id, user_id, event_receipt_id, title, message, severity, deadline, read_at, metadata, created_at)
+deliveries (id, notification_id, channel, status, attempt_count, last_error, delivered_at, created_at)
 ```
 
-Region:
+The database was verified locally with `wrangler d1 execute` and deployed globally to Cloudflare's edge network.
+
+## 8.2 Secondary Backup Deployment: Supabase PostgreSQL
+
+As a reliable backup architecture, the database is also configured for Supabase:
 
 ```text
-Asia-Pacific
+Project: Notification Hub Team20
+Database: Supabase PostgreSQL
+Region: Asia-Pacific
+Migration Script: supabase/migrations/20260921_create_notification_hub_schema.sql
 ```
 
-The database schema was created using the migration:
-
-```text
-supabase/migrations/20260921_create_notification_hub_schema.sql
-```
-
-The migration creates the following tables:
-
-```text
-users
-preferences
-event_receipts
-notifications
-deliveries
-```
-
-The deployed database was verified using the Supabase dashboard.
+The deployed backup was verified using the Supabase SQL dashboard.
 
 ---
 
@@ -637,7 +619,7 @@ Entity Relationship Diagram.
 
 # 14. Conclusion
 
-The Notification Hub database was designed and deployed using Supabase PostgreSQL.
+The Notification Hub database was designed and deployed with **Cloudflare D1** as the primary edge SQL database, and **Supabase PostgreSQL** maintained as the secondary backup database.
 
 The database contains five related tables:
 
@@ -649,7 +631,7 @@ notifications
 deliveries
 ```
 
-The schema uses primary keys, foreign keys, unique constraints, check constraints, and JSONB fields to maintain data integrity.
+The schema uses primary keys, foreign keys, unique constraints, check constraints, and JSON/JSONB support to maintain data integrity across both Cloudflare D1 and Supabase.
 
 The backend provides REST APIs for Create, Read, Update, and Delete operations.
 

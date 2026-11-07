@@ -1,13 +1,14 @@
 # 🔔 Notification Hub — Team 20
 
-[![Tests](https://img.shields.io/badge/Tests-19%20passed-brightgreen)](#-automated-testing)
+[![Cloudflare](https://img.shields.io/badge/Deploy-Cloudflare%20Workers%20%26%20Pages-F38020.svg?logo=cloudflare)](https://workers.cloudflare.com/)
+[![Database](https://img.shields.io/badge/Database-Cloudflare%20D1%20(SQLite%20Edge)-F38020.svg?logo=cloudflare)](https://developers.cloudflare.com/d1/)
+[![Backup DB](https://img.shields.io/badge/Backup%20DB-Supabase%20PostgreSQL-3ECF8E.svg?logo=supabase)](https://supabase.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-v18%2B-green.svg)](https://nodejs.org/)
-[![Express.js](https://img.shields.io/badge/Express.js-5.x-lightgrey.svg)](https://expressjs.com/)
-[![Database](https://img.shields.io/badge/Database-Supabase%20PostgreSQL-3ECF8E.svg)](https://supabase.com/)
 [![License](https://img.shields.io/badge/License-ISC-blue.svg)](LICENSE)
 
 > **Assignment #3 — Database Design & Implementation**  
-> **Centralized Notification Service** for receiving events from external services and delivering notifications across multiple channels.
+> **Centralized Notification Service** for receiving events from external services and delivering notifications across multiple channels.  
+> **Primary Deployment:** Cloudflare Workers + Cloudflare D1 Database | **Backup:** Node.js + Supabase PostgreSQL
 
 ---
 
@@ -100,27 +101,33 @@
 
 ## 🛠 Tech Stack
 
-| Layer | Technology | Details |
-| :--- | :--- | :--- |
-| **Runtime** | Node.js | CommonJS Modules, v18+ |
-| **Framework** | Express.js | Version 5.x REST API |
-| **Database** | Supabase (PostgreSQL) | Managed Cloud Database with JSONB, Constraints & Indexes |
-| **DB Client** | `@supabase/supabase-js` | Supabase JavaScript Client SDK |
-| **Security** | Node.js `crypto` | HMAC SHA-256 Webhook Verification |
-| **Testing** | Node.js Test Runner & Supertest | Automated integration tests (`node --test`) |
-| **Dev Tools** | Nodemon, Dotenv, Cors | Development environment utilities |
+| Layer | Primary (Cloudflare Edge) | Backup (Node.js + Supabase) | Details |
+| :--- | :--- | :--- | :--- |
+| **Edge Runtime / Backend** | Cloudflare Workers (V8 Serverless) | Node.js Express 5.x | High-throughput edge serverless API with < 5ms cold starts |
+| **Primary Database** | **Cloudflare D1 (SQLite at the Edge)** | — | Serverless relational SQL database globally replicated at the edge |
+| **Backup Database** | — | **Supabase (PostgreSQL)** | Managed Cloud PostgreSQL retained as secondary backup archive |
+| **Database Tooling** | Cloudflare Wrangler CLI (`wrangler d1`) | Supabase SQL Dashboard | Schema migration scripts and local/remote execution |
+| **Frontend UI** | Cloudflare Pages (HTML5/CSS) | Express static middleware | Interactive operations dashboard & API documentation |
+| **Security & Crypto** | Web Crypto API (`crypto.subtle`) | Node.js `crypto` | HMAC SHA-256 Webhook Verification & Idempotency |
+| **Testing** | Node.js Test Runner & Supertest | Node.js Test Runner | Automated tests (`node --test`) & Wrangler local testing |
 
 ---
 
 ## 🗄 Database Design
 
-### Why Supabase / PostgreSQL
+### Why Cloudflare D1 (Primary Database)
 
-1. **Relational Data Model:** Entities (`users`, `preferences`, `event_receipts`, `notifications`, `deliveries`) have well-defined foreign-key relations.
-2. **Data Integrity:** Enforced via Primary Keys, Foreign Keys, Unique constraints, Check constraints, and `NOT NULL` rules.
-3. **JSONB Support:** Native binary JSON support for flexible event payloads and notification metadata.
-4. **Remote Cloud Deployment:** Cloud PostgreSQL database with high availability and remote connectivity.
-5. **Developer Dashboard:** Built-in SQL query editor, table browser, and relationship inspection.
+1. **Edge-Native Performance:** Cloudflare D1 is co-located with Cloudflare Workers across global data centers, eliminating network round-trip overhead and cold start delays (< 5ms latency).
+2. **Always-On Availability (No 7-Day Inactivity Sleep):** Unlike free tiers on traditional cloud databases (e.g. Supabase free tier pauses after 7 days of inactivity), Cloudflare D1 never sleeps or pauses.
+3. **Strict Relational & ACID Integrity:** D1 is powered by SQLite, supporting Foreign Key constraints (`ON DELETE CASCADE`), Unique indexes on `eventId`, Check constraints, and transactions.
+4. **Structured JSON Querying:** Flexible event payloads and notification metadata are stored and queried using SQLite's built-in JSON functions (`json_extract`).
+5. **Zero Infrastructure Cost (0 THB):** Runs fully within the generous Cloudflare free tier quota (up to 5 million reads and 100,000 writes daily).
+
+### Supabase PostgreSQL (Secondary / Backup Database)
+
+Supabase PostgreSQL is maintained as a **secondary backup database**. If fallback is desired:
+- The full PostgreSQL schema is preserved at [`supabase/migrations/20260921_create_notification_hub_schema.sql`](supabase/migrations/20260921_create_notification_hub_schema.sql).
+- The Express app maintains a dedicated health check endpoint at `/api/health/supabase`.
 
 ---
 
@@ -279,21 +286,31 @@ erDiagram
 
 ## ☁️ Database Deployment
 
-- **Hosting Platform:** Supabase Cloud
-- **Database Engine:** PostgreSQL
-- **Migration Script:** [`supabase/migrations/20260921_create_notification_hub_schema.sql`](supabase/migrations/20260921_create_notification_hub_schema.sql)
-- **Deployment Status:** Fully deployed with schema tables, foreign key constraints, check constraints, and performance indexes:
+### Primary Deployment: Cloudflare D1 (Edge SQL Database)
+- **Platform:** Cloudflare D1
+- **Database Engine:** SQLite at the Edge
+- **Configuration:** [`wrangler.toml`](wrangler.toml)
+- **Migration Script:** [`cloudflare/schema.sql`](cloudflare/schema.sql) and [`cloudflare/migrations/0001_initial_schema.sql`](cloudflare/migrations/0001_initial_schema.sql)
+- **Seed Script:** [`cloudflare/seed.sql`](cloudflare/seed.sql)
+- **Deployment Status:** Fully tested and deployed with indexed queries:
   - `idx_notifications_user_created` on `notifications(user_id, created_at DESC)`
   - `idx_notifications_user_read` on `notifications(user_id, read_at)`
   - `idx_deliveries_notification` on `deliveries(notification_id)`
   - `idx_event_receipts_event_id` on `event_receipts(event_id)`
 
+### Secondary Backup Deployment: Supabase PostgreSQL
+- **Hosting Platform:** Supabase Cloud
+- **Database Engine:** PostgreSQL
+- **Migration Script:** [`supabase/migrations/20260921_create_notification_hub_schema.sql`](supabase/migrations/20260921_create_notification_hub_schema.sql)
+- **Role:** Maintained as standby secondary database with full schema preservation.
+
 ---
 
 ## 🚀 REST API Endpoints
 
-**Base URL (Local Development):** `http://localhost:3000`  
-**Base URL (Production Render):** `https://notification-hub-team20.onrender.com`  
+**Base URL (Cloudflare Workers - Production):** `https://notification-hub-team20.workers.dev`  
+**Base URL (Local Development):** `http://localhost:3000` (Node.js) or `http://localhost:8787` (Wrangler)  
+**Base URL (Backup Production - Render):** `https://notification-hub-team20.onrender.com`  
 *(All endpoints support `/api/*` prefix and root `/*` paths)*
 
 | Method | Endpoint | Description | Category |
@@ -311,7 +328,8 @@ erDiagram
 | `POST` | `/api/integrations/dispatch-webhook` | Sends outbound webhook dispatch to external system | Outbound Integration |
 | `POST` | `/api/integrations/fetch-external` | Fetches GET data from external system Base URL | Outbound Integration |
 | `GET` | `/api/health` | Server uptime and health probe | System Health Check |
-| `GET` | `/api/health/supabase` | Verifies active database connection to Supabase | Database Health Check |
+| `GET` | `/api/health/database` | Verifies active database connection to Cloudflare D1 | Database Health Check (Primary) |
+| `GET` | `/api/health/supabase` | Verifies backup database connection to Supabase | Database Health Check (Backup) |
 
 > Detailed request headers, JSON payloads, and response examples are available in [`docs/api-examples.md`](docs/api-examples.md).
 
@@ -332,7 +350,9 @@ erDiagram
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) (v18 or higher)
-- A [Supabase](https://supabase.com/) project with PostgreSQL
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (included in project dependencies)
+- Cloudflare Account (for production edge deployment)
+- *(Optional backup)* A [Supabase](https://supabase.com/) project with PostgreSQL
 
 ### Installation & Setup
 
@@ -347,38 +367,62 @@ erDiagram
    npm install
    ```
 
-### Environment Variables
+### ⚡ Quick Start with Cloudflare Workers & D1 (Primary Deployment)
 
-Copy the template file to create your `.env`:
-```bash
-cp .env.example .env
-```
+1. **Apply D1 Local Migration:**
+   ```bash
+   npm run d1:migrate
+   ```
 
-Fill in your configuration in `.env`:
-```env
-PORT=3000
-SUPABASE_URL=https://<your-project-id>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
-EVENT_WEBHOOK_SECRET=<your-hmac-webhook-secret>
-```
+2. **Seed Local Database with Test Users & Sample Data:**
+   ```bash
+   npm run d1:seed
+   ```
 
-### Database Migration
+3. **Start Local Cloudflare Worker Dev Server:**
+   ```bash
+   npm run cf:dev
+   ```
+   The API will be live at `http://localhost:8787` connected to your local Cloudflare D1 database.
 
-Apply the SQL migration script to your Supabase PostgreSQL instance using the Supabase SQL Editor:
-```text
-supabase/migrations/20260921_create_notification_hub_schema.sql
-```
+4. **Deploy to Cloudflare Production:**
+   ```bash
+   # 1. Create remote D1 database on Cloudflare
+   npm run d1:create
 
-### Running the Server
+   # 2. Run migration on remote D1
+   npm run d1:migrate:remote
 
-- **Development Mode (with Nodemon hot-reload):**
-  ```bash
-  npm run dev
-  ```
-- **Production Mode:**
-  ```bash
-  npm start
-  ```
+   # 3. Deploy Worker API & static Pages
+   npm run cf:deploy
+   ```
+
+---
+
+### 🛡️ Running with Node.js & Supabase (Backup Option)
+
+1. **Environment Variables:**
+   Copy the template file to create your `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+   Fill in `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `EVENT_WEBHOOK_SECRET`.
+
+2. **Supabase Database Migration (Backup):**
+   Apply the SQL migration script to your Supabase PostgreSQL instance using the Supabase SQL Editor:
+   ```text
+   supabase/migrations/20260921_create_notification_hub_schema.sql
+   ```
+
+3. **Running the Node.js Server:**
+   - **Development Mode (with Nodemon hot-reload):**
+     ```bash
+     npm run dev
+     ```
+   - **Production Mode:**
+     ```bash
+     npm start
+     ```
 
 The server will listen at `http://localhost:3000`.
 

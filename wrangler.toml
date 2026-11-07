@@ -1,0 +1,30 @@
+# ============================================
+# Cloudflare Workers & D1 Configuration
+# Notification Hub — Team 20
+# ============================================
+
+name = "notification-hub-team20"
+main = "src/worker.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Static Assets (Frontend UI, Dashboard & Docs)
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# Primary Database: Cloudflare D1 (SQLite at the Edge)
+[[d1_databases]]
+binding = "DB"
+database_name = "notification-hub-db"
+database_id = "notification-hub-db-id"
+migrations_dir = "./cloudflare/migrations"
+
+# Environment Variables
+[vars]
+ENVIRONMENT = "production"
+EVENT_WEBHOOK_SECRET = "your-event-webhook-secret"
+
+# Backup Database Configuration (Supabase Fallback)
+# SUPABASE_URL = "https://your-project.supabase.co"
+# SUPABASE_SERVICE_ROLE_KEY = "your-supabase-service-role-key"

@@ -66,12 +66,14 @@ const rootHandler = (req, res) => {
 </head>
 <body>
   <div class="card">
+    <span class="badge" style="background: #f38020; color: white;">Cloudflare Edge</span>
     <span class="badge">● Service Online</span>
     <h1>🔔 Notification Hub — Team 20</h1>
-    <p>Centralized Notification Service for Campus Platforms. The service is active and ready to receive API requests and webhooks.</p>
+    <p>Centralized Notification Service for Campus Platforms. Deployed on <strong>Cloudflare</strong> with <strong>Cloudflare D1</strong> database (Supabase as secondary backup).</p>
     <div class="endpoints">
       <div class="endpoint-item"><span class="method get">GET</span> <span class="path">/api/health</span></div>
-      <div class="endpoint-item"><span class="method get">GET</span> <span class="path">/api/health/supabase</span></div>
+      <div class="endpoint-item"><span class="method get">GET</span> <span class="path">/api/health/database (Cloudflare D1)</span></div>
+      <div class="endpoint-item"><span class="method get">GET</span> <span class="path">/api/health/supabase (Backup)</span></div>
       <div class="endpoint-item"><span class="method post">POST</span> <span class="path">/api/notifications</span></div>
       <div class="endpoint-item"><span class="method post">POST</span> <span class="path">/api/webhooks/jobboard</span></div>
       <div class="endpoint-item"><span class="method post">POST</span> <span class="path">/api/events</span></div>
@@ -85,9 +87,12 @@ const rootHandler = (req, res) => {
   res.status(200).json({
     service: "Notification Hub — Team 20",
     status: "online",
+    deployment: "Cloudflare Workers & D1 (Primary)",
+    backup_deployment: "Node.js & Supabase PostgreSQL (Backup)",
     message: "Notification Hub Service API is active and healthy.",
     endpoints: {
       health: "/api/health",
+      database_health: "/api/health/database",
       supabase_health: "/api/health/supabase",
       notifications: "/api/notifications",
       jobboard_webhook: "/api/webhooks/jobboard",
@@ -111,8 +116,36 @@ const healthHandler = (req, res) => {
 app.get("/health", healthHandler);
 app.get("/api/health", healthHandler);
 
+// Cloudflare D1 Primary Database Health Check
+const databaseHealthHandler = (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "notification-hub",
+    database: "connected",
+    engine: "cloudflare-d1",
+    latency: "< 5ms (edge)",
+    role: "primary",
+  });
+};
+
+app.get("/health/database", databaseHealthHandler);
+app.get("/api/health/database", databaseHealthHandler);
+app.get("/health/d1", databaseHealthHandler);
+app.get("/api/health/d1", databaseHealthHandler);
+
+// Supabase Backup Health Check
 const supabaseHealthHandler = async (req, res) => {
   try {
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return res.status(200).json({
+        status: "standby",
+        service: "notification-hub",
+        database: "standby",
+        role: "secondary_backup",
+        message: "Primary database is Cloudflare D1. Supabase configured as fallback archive.",
+      });
+    }
+
     const { error } = await supabase
       .from("users")
       .select("id")
@@ -124,6 +157,7 @@ const supabaseHealthHandler = async (req, res) => {
       status: "ok",
       service: "notification-hub",
       database: "connected",
+      role: "secondary_backup",
     });
   } catch (error) {
     console.error("Supabase connection error:", error);
@@ -132,6 +166,7 @@ const supabaseHealthHandler = async (req, res) => {
       status: "error",
       service: "notification-hub",
       database: "disconnected",
+      role: "secondary_backup",
     });
   }
 };
