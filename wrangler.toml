@@ -28,3 +28,9 @@ EVENT_WEBHOOK_SECRET = "your-event-webhook-secret"
 # Backup Database Configuration (Supabase Fallback)
 # SUPABASE_URL = "https://your-project.supabase.co"
 # SUPABASE_SERVICE_ROLE_KEY = "your-supabase-service-role-key"
+
+# Observability (Logs)
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true
