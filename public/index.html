@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notification Hub — POD 5 (Team 20)</title>
+  
+  <!-- Soft & Modern Thai Typography: IBM Plex Sans Thai -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ==========================================
+       TOP SITE HEADER
+       ========================================== -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand-group">
+        <div class="brand-logo">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        </div>
+        <div class="brand-title">
+          <span>Notification Hub</span>
+          <span class="brand-tag">POD 5 • Team 20</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn-test" onclick="openTestModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>ทดสอบส่งการแจ้งเตือน</span>
+        </button>
+
+        <div class="user-profile">
+          <div class="avatar">ST</div>
+          <span>Student User</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==========================================
+       MAIN PORTAL CONTAINER
+       ========================================== -->
+  <main class="main-wrapper">
+    
+    <!-- Portal Tabs -->
+    <nav class="portal-tabs">
+      <button class="portal-tab active" data-pane="inbox">
+        <span>กล่องแจ้งเตือน</span>
+        <span class="tab-badge" id="unread-count-badge">3</span>
+      </button>
+
+      <button class="portal-tab" data-pane="systems">
+        <span>ระบบที่เชื่อมต่อ (3 ระบบ)</span>
+      </button>
+
+      <button class="portal-tab" data-pane="settings">
+        <span>การตั้งค่า</span>
+      </button>
+    </nav>
+
+    <!-- ==========================================
+         PANE 1: INBOX & OVERVIEW
+         ========================================== -->
+    <section class="pane active" id="pane-inbox">
+      
+      <!-- Summary Stats (Clean 3 Boxes) -->
+      <div class="overview-stats">
+        <div class="stat-box">
+          <div class="stat-title">การแจ้งเตือนทั้งหมด</div>
+          <div class="stat-number" id="stat-total">7</div>
+          <div class="stat-desc">จากทุกระบบใน POD 5</div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-title">ยังไม่ได้อ่าน</div>
+          <div class="stat-number" style="color: #dc2626;" id="stat-unread">3</div>
+          <div class="stat-desc">รอเปิดอ่าน</div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-title">สถานะระบบ POD 5</div>
+          <div class="stat-number" style="color: #166534;">3 / 3</div>
+          <div class="stat-desc">Internship, Job Board, Alumni พร้อมใช้งาน</div>
+        </div>
+      </div>
+
+      <!-- Feed Card (Filter & List) -->
+      <div class="feed-card">
+        
+        <div class="feed-toolbar">
+          <div class="filter-group">
+            <button class="filter-btn active" data-filter="all">ทั้งหมด</button>
+            <button class="filter-btn" data-filter="unread">ยังไม่ได้อ่าน</button>
+            <button class="filter-btn" data-filter="internship">Internship Track</button>
+            <button class="filter-btn" data-filter="job_board">Job Board</button>
+            <button class="filter-btn" data-filter="alumni_network">Alumni Network</button>
+            <button class="filter-btn" data-filter="system">ระบบส่วนกลาง</button>
+          </div>
+
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="search-input" placeholder="ค้นหาการแจ้งเตือน...">
+            </div>
+
+            <button class="btn-small" onclick="markAllAsRead()">อ่านทั้งหมด</button>
+          </div>
+        </div>
+
+        <!-- Notification List Rows -->
+        <div id="notifications-container">
+          <!-- Rendered by JS -->
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ==========================================
+         PANE 2: CONNECTED SYSTEMS (POD 5)
+         ========================================== -->
+    <section class="pane" id="pane-systems">
+      
+      <div class="services-section">
+        <div class="section-head">
+          <div class="section-title">ระบบในกลุ่ม POD 5 ที่เชื่อมต่อกับ Notification Hub</div>
+          <span style="font-size: 12px; color: var(--text-sub);">Webhook API Integration</span>
+        </div>
+
+        <div class="services-grid" id="services-grid-container">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <div class="feed-card" style="margin-top: 16px;">
+        <div style="padding: 14px 18px; border-bottom: 1px solid var(--border-light); font-weight: 600; font-size: 13px;">
+          ประวัติ Event ล่าสุดที่ส่งเข้ามายังระบบ (Inbound Log)
+        </div>
+        <div id="events-log-container">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==========================================
+         PANE 3: SETTINGS & PREFERENCES
+         ========================================== -->
+    <section class="pane" id="pane-settings">
+      
+      <div class="feed-card" style="max-width: 680px; padding: 20px;">
+        <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 4px;">ตั้งค่าการรับการแจ้งเตือน (Preferences)</h3>
+        <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 20px;">
+          กำหนดช่องทางที่ต้องการรับข้อความและช่วงเวลาห้ามรบกวน
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <label style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fafafa; border: 1px solid var(--border-light); border-radius: 6px; cursor: pointer;">
+            <div>
+              <div style="font-weight: 600; font-size: 13px;">การแจ้งเตือนในแอป (In-App)</div>
+              <div style="font-size: 12px; color: var(--text-sub);">แสดงการแจ้งเตือนแบบเรียลไทม์ในระบบ</div>
+            </div>
+            <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+          </label>
+
+          <label style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fafafa; border: 1px solid var(--border-light); border-radius: 6px; cursor: pointer;">
+            <div>
+              <div style="font-weight: 600; font-size: 13px;">ส่งแจ้งเตือนทางอีเมล (Email)</div>
+              <div style="font-size: 12px; color: var(--text-sub);">ส่งสรุปและแจ้งเตือนด่วนไปยังอีเมลนักศึกษา</div>
+            </div>
+            <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+          </label>
+
+          <label style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fafafa; border: 1px solid var(--border-light); border-radius: 6px; cursor: pointer;">
+            <div>
+              <div style="font-weight: 600; font-size: 13px;">ช่วงเวลาห้ามรบกวน (22:00 - 08:00)</div>
+              <div style="font-size: 12px; color: var(--text-sub);">พักการแจ้งเตือนทั่วไปในช่วงเวลากลางคืน</div>
+            </div>
+            <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+          </label>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ==========================================
+       MODAL: DETAIL VIEW
+       ========================================== -->
+  <div class="modal-backdrop" id="detail-modal">
+    <div class="modal-window">
+      <div class="modal-head">
+        <div class="modal-title">รายละเอียดการแจ้งเตือน</div>
+        <button class="modal-close-btn" onclick="closeModal('detail-modal')">&times;</button>
+      </div>
+      <div class="modal-body-content" id="detail-content">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL: TEST NOTIFICATION (SIMPLE & CLEAN)
+       ========================================== -->
+  <div class="modal-backdrop" id="test-modal">
+    <div class="modal-window">
+      <div class="modal-head">
+        <div class="modal-title">ทดสอบส่งการแจ้งเตือน</div>
+        <button class="modal-close-btn" onclick="closeModal('test-modal')">&times;</button>
+      </div>
+      <div class="modal-body-content">
+        
+        <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+          <button class="btn-small" onclick="quickFill('intern')">ตัวอย่าง: บันทึกฝึกงาน</button>
+          <button class="btn-small" onclick="quickFill('job')">ตัวอย่าง: นัดสัมภาษณ์งาน</button>
+          <button class="btn-small" onclick="quickFill('alumni')">ตัวอย่าง: ศิษย์เก่า</button>
+        </div>
+
+        <form id="test-form" onsubmit="handleSendTest(event)">
+          <div class="form-group">
+            <label class="form-label">ระบบต้นทาง</label>
+            <select class="form-control" id="test-source">
+              <option value="internship">Internship Track</option>
+              <option value="job_board">Job Board</option>
+              <option value="alumni_network">Alumni Network</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-top: 10px;">
+            <label class="form-label">หัวข้อ</label>
+            <input type="text" class="form-control" id="test-title" required value="อนุมัติเอกสารขอฝึกงาน">
+          </div>
+
+          <div class="form-group" style="margin-top: 10px;">
+            <label class="form-label">ข้อความ</label>
+            <textarea class="form-control" id="test-message" rows="3" required>อาจารย์ที่ปรึกษาได้อนุมัติเอกสารขอฝึกงานเรียบร้อยแล้ว</textarea>
+          </div>
+
+          <div class="form-group" style="margin-top: 10px;">
+            <label class="form-label">ระดับความสำคัญ</label>
+            <select class="form-control" id="test-priority">
+              <option value="critical">Critical (ด่วนที่สุด)</option>
+              <option value="high" selected>High (สำคัญ)</option>
+              <option value="medium">Medium (ปานกลาง)</option>
+              <option value="low">Low (ทั่วไป)</option>
+            </select>
+          </div>
+
+          <button type="submit" class="btn-submit" style="width: 100%; margin-top: 16px;">
+            ส่งเข้า Notification Hub
+          </button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/mockData.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
