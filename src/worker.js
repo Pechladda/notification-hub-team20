@@ -14,7 +14,7 @@ function jsonResponse(data, status = 200, extraHeaders = {}) {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, x-event-signature, x-webhook-signature",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, x-event-signature, x-webhook-signature, x-webhook-secret",
       ...extraHeaders,
     },
   });
@@ -27,7 +27,7 @@ function handleCorsPreflight() {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, x-event-signature, x-webhook-signature",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, x-event-signature, x-webhook-signature, x-webhook-secret",
       "Access-Control-Max-Age": "86400",
     },
   });
@@ -81,6 +81,94 @@ function safeJsonParse(str, fallback = {}) {
   }
 }
 
+let schemaInitialized = false;
+
+async function ensureSchema(db) {
+  if (schemaInitialized || !db) return;
+  const statements = [
+    `CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      display_name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    `CREATE TABLE IF NOT EXISTS preferences (
+      user_id TEXT PRIMARY KEY,
+      in_app_enabled INTEGER NOT NULL DEFAULT 1,
+      email_enabled INTEGER NOT NULL DEFAULT 1,
+      quiet_hours_start TEXT,
+      quiet_hours_end TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS event_receipts (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL UNIQUE,
+      event_type TEXT NOT NULL,
+      source_service TEXT NOT NULL,
+      payload TEXT NOT NULL DEFAULT '{}',
+      signature TEXT,
+      status TEXT NOT NULL DEFAULT 'accepted'
+          CHECK (status IN ('accepted', 'rejected', 'duplicate')),
+      received_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    `CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      event_receipt_id TEXT,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      severity TEXT NOT NULL DEFAULT 'low'
+          CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+      deadline TEXT,
+      read_at TEXT,
+      metadata TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (event_receipt_id) REFERENCES event_receipts(id) ON DELETE SET NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS deliveries (
+      id TEXT PRIMARY KEY,
+      notification_id TEXT NOT NULL,
+      channel TEXT NOT NULL
+          CHECK (channel IN ('in_app', 'email')),
+      status TEXT NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'sent', 'failed')),
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT,
+      delivered_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, read_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_deliveries_notification ON deliveries(notification_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_event_receipts_event_id ON event_receipts(event_id)`
+  ];
+
+  try {
+    if (typeof db.batch === "function") {
+      await db.batch(statements.map((s) => db.prepare(s)));
+    } else {
+      for (const stmt of statements) {
+        await db.prepare(stmt).run();
+      }
+    }
+    schemaInitialized = true;
+  } catch (err) {
+    console.error("Auto-schema initialization batch error:", err);
+    // Fallback: run one by one to ensure individual failures don't block others
+    for (const stmt of statements) {
+      try {
+        await db.prepare(stmt).run();
+      } catch (singleErr) {
+        console.warn("Schema statement fallback warning:", singleErr.message);
+      }
+    }
+    schemaInitialized = true;
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") {
@@ -103,6 +191,9 @@ export default {
     }
 
     try {
+      if (env.DB) {
+        await ensureSchema(env.DB);
+      }
       // 1. Root and Status Documentation
       if ((path === "/" || path === "/api") && method === "GET") {
         const accept = request.headers.get("accept") || "";
@@ -212,12 +303,17 @@ export default {
 
         try {
           const row = await env.DB.prepare("SELECT 1 AS ok").first();
+          const tablesResult = await env.DB.prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+          ).all();
+          const tableNames = (tablesResult?.results || []).map((r) => r.name);
           return jsonResponse({
             status: "ok",
             service: "notification-hub",
             database: "connected",
             engine: "cloudflare-d1",
             latency: "< 5ms (edge)",
+            tables: tableNames,
           });
         } catch (dbErr) {
           console.error("D1 Health Check Error:", dbErr);
@@ -232,6 +328,23 @@ export default {
             500
           );
         }
+      }
+
+      // 3.1 Force DB Init Endpoint: GET/POST /api/admin/init-db
+      if (
+        (path === "/api/admin/init-db" || path === "/admin/init-db" || path === "/api/health/init-db") &&
+        (method === "GET" || method === "POST")
+      ) {
+        schemaInitialized = false;
+        await ensureSchema(env.DB);
+        const tablesResult = await env.DB.prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        ).all();
+        return jsonResponse({
+          status: "ok",
+          message: "Database schema initialized successfully",
+          tables: (tablesResult?.results || []).map((r) => r.name),
+        });
       }
 
       // 4. Supabase Backup Health Check
@@ -667,13 +780,19 @@ export default {
         const signature =
           request.headers.get("x-event-signature") ||
           request.headers.get("x-webhook-signature");
+        const webhookSecretHeader = request.headers.get("x-webhook-secret");
         const secret = env.EVENT_WEBHOOK_SECRET || process.env?.EVENT_WEBHOOK_SECRET;
 
-        // If signature is provided, verify it
+        // If HMAC signature is provided, verify it
         if (signature && secret) {
           const valid = await verifyHmacSha256(rawBody, signature, secret);
           if (!valid) {
             return jsonResponse({ error: "Invalid webhook signature" }, 401);
+          }
+        } else if (webhookSecretHeader && secret && secret !== "your-event-webhook-secret") {
+          // If plain shared secret is provided, verify against configured secret
+          if (webhookSecretHeader !== secret) {
+            return jsonResponse({ error: "Invalid webhook secret" }, 401);
           }
         }
 
