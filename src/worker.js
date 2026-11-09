@@ -71,6 +71,65 @@ function normalizeSeverity(val) {
   return "low";
 }
 
+// ── AI-Assisted Flow & Deterministic Fallback Helpers (FR-09 & BR-05) ──
+const SEVERITY_WEIGHTS = { critical: 4, high: 3, medium: 2, low: 1 };
+
+function isHighStakes({ category = "", severity = "", title = "", message = "" }) {
+  const normCategory = String(category).toLowerCase();
+  const normSeverity = String(severity).toLowerCase();
+  const content = `${title} ${message}`.toLowerCase();
+
+  if (normSeverity === "critical" || normSeverity === "urgent") {
+    return true;
+  }
+
+  const highStakesKeywords = [
+    "interview", "สัมภาษณ์", "approval", "อนุมัติ", "rejected", "ปฏิเสธ",
+    "exam", "สอบ", "deadline", "กำหนดส่ง", "หมดเขต", "contract", "สัญญา",
+  ];
+
+  if (normCategory === "job_board" && (content.includes("interview") || content.includes("สัมภาษณ์"))) {
+    return true;
+  }
+
+  return highStakesKeywords.some((kw) => content.includes(kw));
+}
+
+function deterministicSummarize({ title = "", message = "" }) {
+  if (!message) return title;
+  const sentences = message
+    .split(/[\r\n\t]+|[.?!]\s+|(?<=[ก-๙])\s+(?=[ก-๙])/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 5);
+
+  if (sentences.length <= 1) {
+    return message.length > 120 ? `${message.slice(0, 117)}...` : message;
+  }
+  const primary = sentences[0];
+  return primary.length > 120 ? `${primary.slice(0, 117)}...` : primary;
+}
+
+function deterministicSortNotifications(items = []) {
+  return [...items].sort((a, b) => {
+    const weightA = SEVERITY_WEIGHTS[String(a.severity).toLowerCase()] || 0;
+    const weightB = SEVERITY_WEIGHTS[String(b.severity).toLowerCase()] || 0;
+    if (weightA !== weightB) return weightB - weightA;
+
+    if (a.deadline && b.deadline) {
+      const diff = new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      if (diff !== 0) return diff;
+    } else if (a.deadline && !b.deadline) {
+      return -1;
+    } else if (!a.deadline && b.deadline) {
+      return 1;
+    }
+
+    const timeA = new Date(a.created_at || a.createdAt || 0).getTime();
+    const timeB = new Date(b.created_at || b.createdAt || 0).getTime();
+    return timeB - timeA;
+  });
+}
+
 // Safely parse JSON or return default
 function safeJsonParse(str, fallback = {}) {
   if (typeof str === "object" && str !== null) return str;
@@ -846,6 +905,50 @@ export default {
         const notifId = crypto.randomUUID();
         const nowIso = new Date().toISOString();
 
+        const incomingMeta = body.metadata || body.data || body.payload || {};
+        const applicationId =
+          incomingMeta.application_id ??
+          incomingMeta.applicationId ??
+          body.application_id ??
+          body.applicationId;
+        const jobId =
+          incomingMeta.job_id ??
+          incomingMeta.jobId ??
+          body.job_id ??
+          body.jobId;
+        const jobTitle =
+          incomingMeta.job_title ??
+          incomingMeta.jobTitle ??
+          body.job_title ??
+          body.jobTitle;
+        const companyName =
+          incomingMeta.company_name ??
+          incomingMeta.companyName ??
+          incomingMeta.company ??
+          body.company_name ??
+          body.companyName ??
+          body.company;
+        const oldStatus =
+          incomingMeta.old_status ??
+          incomingMeta.oldStatus ??
+          body.old_status ??
+          body.oldStatus;
+        const newStatus =
+          incomingMeta.new_status ??
+          incomingMeta.newStatus ??
+          body.new_status ??
+          body.newStatus;
+
+        const notificationMeta = {
+          ...incomingMeta,
+          ...(applicationId !== undefined && applicationId !== null ? { application_id: applicationId } : {}),
+          ...(jobId !== undefined && jobId !== null ? { job_id: jobId } : {}),
+          ...(jobTitle ? { job_title: jobTitle } : {}),
+          ...(companyName ? { company_name: companyName } : {}),
+          ...(oldStatus ? { old_status: oldStatus } : {}),
+          ...(newStatus ? { new_status: newStatus } : {}),
+        };
+
         await env.DB.prepare(`
           INSERT INTO event_receipts (id, event_id, event_type, source_service, payload, signature, status, received_at)
           VALUES (?, ?, ?, ?, ?, ?, 'accepted', ?)
@@ -889,7 +992,7 @@ export default {
             message,
             normalizeSeverity(body.severity || body.priority),
             body.deadline || null,
-            JSON.stringify(body.metadata || {}),
+            JSON.stringify(notificationMeta),
             nowIso
           )
           .run();
@@ -920,51 +1023,102 @@ export default {
         }
 
         // ── Webhook Callback to Job Board (Team 18) ──
-        // After successfully processing the webhook, send acknowledgment back
-        const JOBBOARD_CALLBACK_URL = "https://team18-job-board-api.tawee-dev.workers.dev/api/webhooks/notification";
+        // After successfully processing the webhook, send acknowledgment callback to Job Board
         let callbackResult = null;
+        const isJobBoard =
+          serviceName.toLowerCase() === "jobboard" ||
+          serviceName.toLowerCase() === "job_board" ||
+          serviceName.toLowerCase() === "job-board";
 
-        try {
-          const callbackPayload = {
-            eventId: eventId,
-            event_id: eventId,
-            eventType: eventType,
-            event_type: eventType,
-            userId: userId,
-            title: title,
-            message: message,
-          };
+        if (isJobBoard) {
+          const JOBBOARD_CALLBACK_URL =
+            "https://team18-job-board-api.tawee-dev.workers.dev/api/webhooks/notification";
 
-          const callbackSecret =
-            webhookSecretHeader ||
-            (secret && secret !== "your-event-webhook-secret"
-              ? secret
-              : "a760ac43342d4f7094e0fd90f25f8036");
+          try {
+            // Student sensitive data keys to exclude (never send CV, phone, email back)
+            const SENSITIVE_KEYS = new Set([
+              "cv",
+              "resume",
+              "phone",
+              "phonenumber",
+              "phone_number",
+              "tel",
+              "email",
+              "studentemail",
+              "student_email",
+              "studentphone",
+              "student_phone",
+            ]);
 
-          const callbackResponse = await fetch(JOBBOARD_CALLBACK_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-webhook-secret": callbackSecret,
-            },
-            body: JSON.stringify(callbackPayload),
-          });
+            const callbackMetadata = {};
+            if (applicationId !== undefined && applicationId !== null) {
+              callbackMetadata.application_id = applicationId;
+            }
+            if (jobId !== undefined && jobId !== null) {
+              callbackMetadata.job_id = jobId;
+            }
+            if (jobTitle) {
+              callbackMetadata.job_title = jobTitle;
+            }
+            if (companyName) {
+              callbackMetadata.company_name = companyName;
+            }
+            if (oldStatus) {
+              callbackMetadata.old_status = oldStatus;
+            }
+            if (newStatus) {
+              callbackMetadata.new_status = newStatus;
+            }
 
-          callbackResult = {
-            sent: true,
-            status: callbackResponse.status,
-            ok: callbackResponse.ok,
-          };
+            // Include any additional safe metadata fields
+            for (const [key, value] of Object.entries(incomingMeta)) {
+              const normalized = key.toLowerCase().replace(/[^a-z0-9_]/g, "");
+              if (!SENSITIVE_KEYS.has(normalized) && callbackMetadata[key] === undefined) {
+                callbackMetadata[key] = value;
+              }
+            }
 
-          console.log(
-            `[Webhook Callback] Sent to Job Board: event_id=${eventId}, event_type=${eventType}, status=${callbackResponse.status}`
-          );
-        } catch (callbackErr) {
-          callbackResult = {
-            sent: false,
-            error: callbackErr.message,
-          };
-          console.error("[Webhook Callback] Failed to send to Job Board:", callbackErr.message);
+            const callbackPayload = {
+              eventId: eventId,
+              eventType: eventType,
+              userId: String(userId),
+              title: title,
+              message: message,
+              timestamp: body.timestamp || nowIso,
+              metadata: callbackMetadata,
+            };
+
+            const callbackSecret =
+              webhookSecretHeader ||
+              (secret && secret !== "your-event-webhook-secret"
+                ? secret
+                : "a760ac43342d4f7094e0fd90f25f8036");
+
+            const callbackResponse = await fetch(JOBBOARD_CALLBACK_URL, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-webhook-secret": callbackSecret,
+              },
+              body: JSON.stringify(callbackPayload),
+            });
+
+            callbackResult = {
+              sent: true,
+              status: callbackResponse.status,
+              ok: callbackResponse.ok,
+            };
+
+            console.log(
+              `[Webhook Callback] Sent to Job Board: event_id=${eventId}, event_type=${eventType}, app_id=${callbackMetadata.application_id}, status=${callbackResponse.status}`
+            );
+          } catch (callbackErr) {
+            callbackResult = {
+              sent: false,
+              error: callbackErr.message,
+            };
+            console.error("[Webhook Callback] Failed to send to Job Board:", callbackErr.message);
+          }
         }
 
         return jsonResponse(
@@ -1124,6 +1278,109 @@ export default {
           success: extRes.ok,
           url: target,
           data: extData,
+        });
+      }
+
+      // 15. AI-Assisted Summarization & Deterministic Fallback: POST /api/notifications/ai-summarize or /api/ai/summarize
+      if (
+        (path === "/notifications/ai-summarize" ||
+          path === "/api/notifications/ai-summarize" ||
+          path === "/api/ai/summarize") &&
+        method === "POST"
+      ) {
+        const body = await request.json().catch(() => ({}));
+        const { title = "", message = "", category = "general", severity = "low", deadline = null } = body;
+
+        if (!message && !title) {
+          return jsonResponse({ error: "title or message is required for summarization" }, 400);
+        }
+
+        // BR-05 Check: High stakes protection
+        if (isHighStakes({ category, severity, title, message })) {
+          return jsonResponse({
+            status: "success",
+            flow: "deterministic_fallback",
+            ai_applied: false,
+            fallback_reason: "High-stakes event protected under BR-05 policy (interviews, approvals, or critical severity). Original verbatim text preserved.",
+            summary: message,
+            original_length: message.length,
+            category,
+            severity,
+          });
+        }
+
+        const geminiKey = env.GEMINI_API_KEY || env.GOOGLE_API_KEY;
+        if (geminiKey) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            const prompt = `สรุปข้อความแจ้งเตือนต่อไปนี้ให้สั้น กระชับ เข้าใจง่าย ภายใน 1-2 ประโยค:\nหัวข้อ: ${title}\nข้อความ: ${message}`;
+            const gRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: prompt }] }],
+                  generationConfig: { maxOutputTokens: 100, temperature: 0.2 },
+                }),
+                signal: controller.signal,
+              }
+            );
+            clearTimeout(timeoutId);
+            if (gRes.ok) {
+              const gData = await gRes.json();
+              const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+              if (text) {
+                return jsonResponse({
+                  status: "success",
+                  flow: "ai_assisted",
+                  ai_applied: true,
+                  provider: "google-gemini",
+                  summary: text,
+                  original_length: message.length,
+                  summary_length: text.length,
+                  category,
+                  severity,
+                });
+              }
+            }
+          } catch (aiErr) {
+            console.warn("[Worker AI] Gemini fetch timeout or error:", aiErr.message);
+          }
+        }
+
+        // Deterministic Fallback
+        const fallbackSummary = deterministicSummarize({ title, message });
+        return jsonResponse({
+          status: "success",
+          flow: "deterministic_fallback",
+          ai_applied: false,
+          fallback_reason: geminiKey
+            ? "AI provider timeout or unavailable; immediately triggered deterministic fallback."
+            : "No external AI credentials configured; executed deterministic rule-based summarization.",
+          summary: fallbackSummary,
+          original_length: message.length,
+          summary_length: fallbackSummary.length,
+          category,
+          severity,
+        });
+      }
+
+      // 16. Deterministic Sort: POST /api/notifications/deterministic-sort
+      if (
+        (path === "/notifications/deterministic-sort" ||
+          path === "/api/notifications/deterministic-sort") &&
+        method === "POST"
+      ) {
+        const body = await request.json().catch(() => ({}));
+        const notifications = Array.isArray(body.notifications) ? body.notifications : [];
+        const sorted = deterministicSortNotifications(notifications);
+        return jsonResponse({
+          status: "success",
+          count: sorted.length,
+          sorting_rule: "severity (critical -> high -> medium -> low) -> deadline (near -> far) -> created_at (newest -> oldest)",
+          notifications: sorted,
         });
       }
 

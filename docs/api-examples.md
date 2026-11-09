@@ -470,11 +470,44 @@ HTTP Status: `201 Created`
   "eventReceiptId": "7d6d3701-08fa-4e7a-9a99-4c1264c7ad3f",
   "notificationId": "158dd74b-af54-4c5a-b158-f86a510efead",
   "notification": { ... },
-  "deliveries": [ ... ]
+  "deliveries": [ ... ],
+  "callback": {
+    "sent": true,
+    "status": 200,
+    "ok": true
+  }
 }
 ```
 
 *(หากส่ง `eventId` ซ้ำ ระบบจะตอบกลับด้วย `{ "status": "duplicate" }` HTTP 200)*
+
+### Job Board Automatic Webhook Callback
+
+หลังจากบันทึก Event ของ Job Board สำเร็จ ระบบจะส่ง Webhook Callback ไปที่:
+* **URL:** `POST https://team18-job-board-api.tawee-dev.workers.dev/api/webhooks/notification`
+* **Header:**
+  * `Content-Type: application/json`
+  * `x-webhook-secret: <shared secret>`
+* **Payload:**
+```json
+{
+  "eventId": "app-status-57-shortlisted-...",
+  "eventType": "APPLICATION_STATUS_CHANGED",
+  "userId": "18",
+  "title": "สถานะใบสมัครอัปเดต",
+  "message": "ใบสมัครตำแหน่ง Digital Marketing Coordinator เปลี่ยนเป็น Shortlisted",
+  "timestamp": "2026-11-08T09:00:00.000Z",
+  "metadata": {
+    "application_id": 57,
+    "job_id": 220,
+    "job_title": "Digital Marketing Coordinator",
+    "company_name": "Blue River Consulting Co., Ltd.",
+    "old_status": "reviewing",
+    "new_status": "shortlisted"
+  }
+}
+```
+*(ระบบเก็บ `eventId` เดิม และไม่ส่งข้อมูลส่วนบุคคลของนักศึกษา เช่น CV, เบอร์โทร, อีเมล กลับไป)*
 
 ---
 
@@ -538,6 +571,8 @@ HTTP Status: `201 Created`
 | PATCH | `/api/preferences` | แก้ไข notification preferences | Preference (Update) |
 | POST | `/api/integrations/dispatch-webhook` | ยิง Webhook ส่งต่อกลับไประบบกลุ่มอื่น | Outbound Webhook |
 | POST | `/api/integrations/fetch-external` | ดึงข้อมูล GET จากระบบกลุ่มอื่น | Outbound Data Fetch |
+| POST | `/api/notifications/ai-summarize` | AI-assisted summarization พร้อม deterministic fallback (FR-09 & BR-05) | AI Service |
+| POST | `/api/notifications/deterministic-sort` | จัดเรียงแจ้งเตือนตามกฎ deterministic fallback: severity -> deadline -> created_at | AI Fallback |
 | GET | `/api/health` | ตรวจสอบสถานะการทำงานของเซิร์ฟเวอร์ | Health Check |
 | GET | `/api/health/supabase` | ตรวจสอบการเชื่อมต่อฐานข้อมูล Supabase | Health Check |
 

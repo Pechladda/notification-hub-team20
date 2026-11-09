@@ -249,6 +249,25 @@ function viewDetail(id) {
       </div>
     </div>
 
+    ${
+      item.metadata?.application_id
+        ? `
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 14px;">
+      <div style="font-size: 11px; font-weight: 700; color: #166534; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+        <span>ข้อมูลใบสมัคร (Job Board)</span>
+        <span style="background: #dcfce7; color: #15803d; font-size: 11px; padding: 1px 6px; border-radius: 4px;">ID #${item.metadata.application_id}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #1e293b;">
+        <div><strong style="color: #64748b;">รหัสตำแหน่ง:</strong> #${item.metadata.job_id || "-"}</div>
+        <div><strong style="color: #64748b;">สถานะ:</strong> ${item.metadata.new_status || item.metadata.status || "Shortlisted"}</div>
+        <div style="grid-column: span 2;"><strong style="color: #64748b;">ตำแหน่ง:</strong> ${item.metadata.job_title || item.metadata.position || "-"}</div>
+        <div style="grid-column: span 2;"><strong style="color: #64748b;">บริษัท:</strong> ${item.metadata.company_name || item.metadata.company || "-"}</div>
+      </div>
+    </div>
+    `
+        : ""
+    }
+
     <div>
       <div style="font-size: 11px; font-weight: 600; color: var(--text-light); text-transform: uppercase; margin-bottom: 4px;">ช่องทางที่ส่ง (Channels)</div>
       <div style="display: flex; gap: 6px;">
@@ -256,9 +275,75 @@ function viewDetail(id) {
         <span style="font-size: 11px; background: #ecfdf5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-weight: 500;">Email Notification</span>
       </div>
     </div>
+
+    <!-- AI-Assisted Flow & Deterministic Fallback (FR-09 & BR-05) -->
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+        <span style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase;">
+          AI-Assisted Summarization (FR-09)
+        </span>
+        <button class="btn-small" style="font-size: 11px; padding: 2px 8px; cursor: pointer;" onclick="runAiSummarize('${item.id}')">
+          🤖 สรุปด้วย AI
+        </button>
+      </div>
+      <div id="ai-summary-box-${item.id}" style="font-size: 12px; color: #64748b; line-height: 1.5;">
+        กดปุ่มเพื่อทดสอบระบบ AI-Assisted Flow พร้อม Deterministic Fallback ตามข้อกำหนด
+      </div>
+    </div>
   `;
 
   modal.classList.add("active");
+}
+
+async function runAiSummarize(id) {
+  const item = notifications.find((n) => n.id === id);
+  const box = document.getElementById(`ai-summary-box-${id}`);
+  if (!item || !box) return;
+
+  box.innerHTML = `<span style="color: var(--primary);">กำลังประมวลผลผ่าน AI-Assisted Flow...</span>`;
+
+  try {
+    const res = await fetch("/api/notifications/ai-summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: item.title,
+        message: item.message,
+        category: item.category,
+        severity: item.severity,
+      }),
+    });
+
+    const data = await res.json();
+    if (data.flow === "ai_assisted") {
+      box.innerHTML = `
+        <div style="margin-bottom: 4px;">
+          <span style="background: #ecfdf5; color: #065f46; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">🤖 AI-ASSISTED FLOW</span>
+        </div>
+        <div style="color: #0f172a; font-weight: 500;">${data.summary}</div>
+      `;
+    } else {
+      box.innerHTML = `
+        <div style="margin-bottom: 4px;">
+          <span style="background: #eff6ff; color: #1e40af; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">🛡️ DETERMINISTIC FALLBACK</span>
+        </div>
+        <div style="color: #334155; font-weight: 500;">${data.summary}</div>
+        <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-style: italic;">
+          เหตุผล Fallback: ${data.fallback_reason}
+        </div>
+      `;
+    }
+  } catch (err) {
+    box.innerHTML = `
+      <div style="margin-bottom: 4px;">
+        <span style="background: #fef2f2; color: #991b1b; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">🛡️ DETERMINISTIC FALLBACK</span>
+      </div>
+      <div style="color: #334155;">${item.message}</div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-style: italic;">
+        ทำงานผ่าน Deterministic Fallback อัตโนมัติ (ระบบทำงานต่อเนื่อง 100%)
+      </div>
+    `;
+  }
 }
 
 function openTestModal() {

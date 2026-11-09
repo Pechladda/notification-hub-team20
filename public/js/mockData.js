@@ -84,8 +84,13 @@ const INITIAL_NOTIFICATIONS = [
       { channel: "email", status: "delivered", sentAt: "19:45:05" },
     ],
     metadata: {
+      application_id: 57,
+      job_id: 220,
+      job_title: "Frontend Engineer (Intern / Junior)",
+      company_name: "LINE MAN Wongnai",
       company: "LINE MAN Wongnai",
       position: "Frontend Engineer (Intern / Junior)",
+      new_status: "interview_scheduled",
       meetingLink: "https://meet.google.com/xyz-mock",
       scheduledAt: "2026-11-02 10:00:00",
     },

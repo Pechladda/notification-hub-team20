@@ -80,3 +80,36 @@ test("POST /api/webhooks/:service should support other partner services (e.g. in
   assert.strictEqual(response.body.service, "internship");
   assert.ok(response.body.notificationId);
 });
+
+test("POST /api/webhooks/jobboard should accept application_id metadata and return notification with metadata", async () => {
+  const eventId = `app-status-57-shortlisted-${Date.now()}`;
+  const payload = {
+    eventId,
+    eventType: "APPLICATION_STATUS_CHANGED",
+    userId: "18",
+    title: "สถานะใบสมัครอัปเดต",
+    message: "ใบสมัครตำแหน่ง Digital Marketing Coordinator เปลี่ยนเป็น Shortlisted",
+    timestamp: new Date().toISOString(),
+    metadata: {
+      application_id: 57,
+      job_id: 220,
+      job_title: "Digital Marketing Coordinator",
+      company_name: "Blue River Consulting Co., Ltd.",
+      old_status: "reviewing",
+      new_status: "shortlisted",
+    },
+  };
+
+  const response = await request(app)
+    .post("/api/webhooks/jobboard")
+    .set("x-webhook-secret", "a760ac43342d4f7094e0fd90f25f8036")
+    .send(payload)
+    .expect(201);
+
+  assert.strictEqual(response.body.status, "accepted");
+  assert.strictEqual(response.body.service, "JobBoard");
+  assert.strictEqual(response.body.notification.metadata.application_id, 57);
+  assert.strictEqual(response.body.notification.metadata.job_id, 220);
+  assert.strictEqual(response.body.notification.metadata.job_title, "Digital Marketing Coordinator");
+  assert.strictEqual(response.body.notification.metadata.company_name, "Blue River Consulting Co., Ltd.");
+});
