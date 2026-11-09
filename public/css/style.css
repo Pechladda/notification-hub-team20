@@ -96,7 +96,7 @@ body {
 }
 
 .header-inner {
-  max-width: 1080px;
+  max-width: 1280px;
   margin: 0 auto;
   height: 100%;
   padding: 0 24px;
@@ -196,9 +196,9 @@ body {
    Page Layout & Container
    ========================================================================== */
 .main-wrapper {
-  max-width: 1080px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 28px 24px;
+  padding: 24px;
 }
 
 /* Navigation Tabs */
@@ -952,11 +952,14 @@ body {
 
 /* Admin Table Styles (Refined & Modern) */
 .admin-table-wrap {
+  width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-table {
   width: 100%;
+  min-width: 900px;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 13px;
@@ -964,7 +967,7 @@ body {
 }
 
 .admin-table th {
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: #f8fafc;
   color: var(--text-sub);
   font-weight: 600;
@@ -976,7 +979,7 @@ body {
 }
 
 .admin-table td {
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-bottom: 1px solid #f1f5f9;
   color: var(--text-body);
   vertical-align: middle;
