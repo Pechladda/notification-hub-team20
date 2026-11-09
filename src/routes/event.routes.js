@@ -8,14 +8,36 @@ router.get("/recent", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("event_receipts")
-      .select("id, event_id, event_type, source_service, status, received_at")
+      .select("id, event_id, event_type, source_service, status, received_at, payload")
       .order("received_at", { ascending: false })
-      .limit(20);
+      .limit(25);
 
     if (error) {
       return res.status(500).json({ error: error.message });
     }
-    return res.status(200).json({ events: data || [] });
+
+    const formatted = (data || []).map((row) => {
+      let parsed = {};
+      try {
+        parsed = typeof row.payload === "string" ? JSON.parse(row.payload) : (row.payload || {});
+      } catch {}
+      const meta = parsed.metadata || parsed.data || parsed.payload || {};
+      return {
+        id: row.id,
+        event_id: row.event_id,
+        event_type: row.event_type,
+        source_service: row.source_service,
+        status: row.status,
+        received_at: row.received_at,
+        title: parsed.title || parsed.subject || `Event: ${row.event_type}`,
+        message: parsed.message || parsed.description || parsed.content || "",
+        severity: parsed.severity || parsed.priority || "low",
+        metadata: meta,
+        payload: parsed,
+      };
+    });
+
+    return res.status(200).json({ events: formatted });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

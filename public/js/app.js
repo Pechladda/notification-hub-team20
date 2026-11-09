@@ -46,25 +46,50 @@ async function fetchNotifications() {
     notifications = [];
   }
 
-  // Fetch recent events from event_receipts (optional — fallback to empty)
+  // Fetch recent events from event_receipts (enriched with notification & payload)
   try {
     const evtRes = await fetch(`${API_BASE}/api/events/recent`);
     if (evtRes.ok) {
       const evtData = await evtRes.json();
-      recentEvents = (evtData.events || []).map((e) => ({
-        eventId: e.event_id || e.id,
-        service: e.source_service || "Job Board",
-        eventType: e.event_type || "webhook.event",
-        timestamp: e.received_at
-          ? new Date(e.received_at).toLocaleTimeString("th-TH")
-          : "-",
-      }));
+      recentEvents = (evtData.events || []).map((e) => {
+        const payload = e.payload || {};
+        const meta = e.metadata || payload.metadata || payload.data || {};
+        return {
+          id: e.id,
+          eventId: e.event_id || e.id,
+          service: e.source_service || "Job Board",
+          eventType: e.event_type || "webhook.event",
+          status: e.status || "accepted",
+          notificationId: e.notification_id || null,
+          title: e.title || payload.title || payload.subject || `Event: ${e.event_type || "Job Board Event"}`,
+          message: e.message || payload.message || payload.description || payload.content || "ได้รับการแจ้งเตือนจากระบบ Job Board",
+          severity: (e.severity || payload.severity || payload.priority || "low").toLowerCase(),
+          read: !!e.read_at,
+          metadata: meta,
+          payload: payload,
+          receivedAt: e.received_at,
+          timestamp: e.received_at
+            ? new Date(e.received_at).toLocaleTimeString("th-TH")
+            : "-",
+          timeAgo: timeAgo(e.received_at),
+        };
+      });
     }
   } catch {
     recentEvents = [];
   }
 
   renderAll();
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 /** Map an API notification object to the UI format */
@@ -281,13 +306,61 @@ function renderConnectedSystems() {
     .join("");
 }
 
+/** Render Job Board notifications in Page 2 (Synchronized with Page 1) */
+function renderJobBoardNotifications() {
+  const container = document.getElementById("jobboard-notifications-container");
+  if (!container) return;
+
+  const jobNotifs = notifications.filter(
+    (n) => n.category === "job_board" || n.sourceService.toLowerCase().includes("job")
+  );
+
+  if (jobNotifs.length === 0) {
+    container.innerHTML = `
+      <div style="padding: 30px; text-align: center; color: var(--text-light);">
+        <p style="font-size: 13px;">ยังไม่มีการแจ้งเตือนจาก Job Board</p>
+        <p style="font-size: 12px; margin-top: 6px;">เมื่อมี Webhook ส่งเข้ามา การแจ้งเตือนจะปรากฏที่นี่และในกล่องแจ้งเตือนหน้าแรกพร้อมกัน</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = jobNotifs
+    .map((item) => {
+      const priClass = `pri-${item.severity}`;
+
+      return `
+        <div class="notif-row ${item.read ? "" : "unread"}" onclick="viewDetail('${item.id}')">
+          <div class="notif-main">
+            <div class="notif-meta-row">
+              <span class="badge-source badge-job">Job Board</span>
+              <span class="badge-priority ${priClass}">${item.severity.toUpperCase()}</span>
+              <span class="notif-time">${item.timeAgo || "เมื่อสักครู่"}</span>
+            </div>
+            <div class="notif-heading">${escapeHtml(item.title)}</div>
+            <div class="notif-preview">${escapeHtml(item.message)}</div>
+          </div>
+          <div class="notif-actions" onclick="event.stopPropagation()">
+            <button class="btn-small" onclick="toggleReadStatus('${item.id}')">
+              ${item.read ? "มาร์คยังไม่อ่าน" : "อ่านแล้ว"}
+            </button>
+            <button class="btn-small" onclick="viewDetail('${item.id}')">
+              รายละเอียด
+            </button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
 function renderEventsLog() {
   const container = document.getElementById("events-log-container");
   if (!container) return;
 
   if (recentEvents.length === 0) {
     container.innerHTML = `
-      <div style="padding: 16px 18px; font-size: 12px; color: var(--text-light);">
+      <div style="padding: 24px 20px; text-align: center; color: var(--text-light); font-size: 13px;">
         ยังไม่มี Event เข้ามา — ข้อมูลจะแสดงเมื่อ Job Board ส่ง Webhook เข้ามา
       </div>
     `;
@@ -295,21 +368,118 @@ function renderEventsLog() {
   }
 
   container.innerHTML = recentEvents
-    .slice(0, 10)
-    .map(
-      (e) => `
-      <div style="padding: 10px 18px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
-        <div>
-          <span style="font-weight: 600; color: var(--text-main); margin-right: 8px;">${e.service}</span>
-          <code style="color: var(--primary); font-size: 11px;">${e.eventType}</code>
+    .slice(0, 15)
+    .map((e) => {
+      const priClass = `pri-${(e.severity || "low").toLowerCase()}`;
+      const sevLabel = (e.severity || "LOW").toUpperCase();
+      const title = e.title || "การแจ้งเตือนจาก Job Board";
+      const message = e.message || "-";
+
+      return `
+        <div class="notif-row" onclick="viewEventDetail('${e.id}')">
+          <div class="notif-main">
+            <div class="notif-meta-row" style="flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
+              <span class="badge-source badge-job">Job Board</span>
+              <code style="background: var(--bg-subtle); color: var(--primary); padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600;">${escapeHtml(e.eventType)}</code>
+              <span class="badge-priority ${priClass}">${sevLabel}</span>
+              <span style="font-size: 11px; color: #166534; background: #dcfce7; padding: 2px 8px; border-radius: 4px; font-weight: 600;">✓ สร้างการแจ้งเตือนแล้ว</span>
+              <span class="notif-time" style="margin-left: auto;">${e.timestamp} (${e.timeAgo})</span>
+            </div>
+            <div class="notif-heading" style="font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 3px;">
+              ${escapeHtml(title)}
+            </div>
+            <div class="notif-preview" style="font-size: 12px; color: var(--text-sub); line-height: 1.4;">
+              ${escapeHtml(message)}
+            </div>
+          </div>
+          <div class="notif-actions" onclick="event.stopPropagation()">
+            <button class="btn-small" onclick="viewEventDetail('${e.id}')">
+              รายละเอียด
+            </button>
+          </div>
         </div>
-        <div style="color: var(--text-light); font-size: 11px;">
-          ${e.timestamp}
-        </div>
-      </div>
-    `
-    )
+      `;
+    })
     .join("");
+}
+
+function viewEventDetail(eventId) {
+  const e = recentEvents.find((evt) => evt.id === eventId || evt.eventId === eventId);
+  if (!e) return;
+
+  const notif = notifications.find((n) => n.id === e.notificationId);
+  if (notif) {
+    viewDetail(notif.id);
+    return;
+  }
+
+  const modal = document.getElementById("detail-modal");
+  const content = document.getElementById("detail-content");
+  if (!modal || !content) return;
+
+  const meta = e.metadata || e.payload?.metadata || e.payload?.data || {};
+
+  content.innerHTML = `
+    <div>
+      <div style="font-size: 11px; font-weight: 600; color: var(--text-light); text-transform: uppercase; margin-bottom: 2px;">หัวข้อ</div>
+      <div style="font-size: 15px; font-weight: 600; color: var(--text-main);">${escapeHtml(e.title)}</div>
+    </div>
+
+    <div>
+      <div style="font-size: 11px; font-weight: 600; color: var(--text-light); text-transform: uppercase; margin-bottom: 2px;">ข้อความ</div>
+      <div style="font-size: 13px; color: var(--text-sub); line-height: 1.5; background: #fafafa; padding: 10px; border-radius: 6px; border: 1px solid var(--border-light);">
+        ${escapeHtml(e.message)}
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-light); text-transform: uppercase; margin-bottom: 2px;">ระบบต้นทาง</div>
+        <div style="font-size: 13px; font-weight: 600; color: var(--primary);">Job Board (Team 18)</div>
+      </div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-light); text-transform: uppercase; margin-bottom: 2px;">Event Type</div>
+        <code style="font-size: 12px; color: var(--primary); font-weight: 600;">${escapeHtml(e.eventType)}</code>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-light); text-transform: uppercase; margin-bottom: 2px;">ระดับความสำคัญ</div>
+        <div style="font-size: 13px; font-weight: 600;">${(e.severity || "LOW").toUpperCase()}</div>
+      </div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-light); text-transform: uppercase; margin-bottom: 2px;">สถานะ Event</div>
+        <span style="font-size: 12px; color: #166534; font-weight: 600;">✓ ${e.status || "accepted"} (สร้างการแจ้งเตือนแล้ว)</span>
+      </div>
+    </div>
+
+    ${
+      meta.application_id || e.payload?.application_id
+        ? `
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 14px;">
+      <div style="font-size: 11px; font-weight: 700; color: #166534; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+        <span>ข้อมูลใบสมัคร (Job Board)</span>
+        <span style="background: #dcfce7; color: #15803d; font-size: 11px; padding: 1px 6px; border-radius: 4px;">ID #${meta.application_id || e.payload?.application_id}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #1e293b;">
+        <div><strong style="color: #64748b;">รหัสตำแหน่ง:</strong> #${meta.job_id || e.payload?.job_id || "-"}</div>
+        <div><strong style="color: #64748b;">สถานะ:</strong> ${meta.new_status || meta.status || e.payload?.status || "-"}</div>
+        <div style="grid-column: span 2;"><strong style="color: #64748b;">ตำแหน่ง:</strong> ${meta.job_title || e.payload?.job_title || "-"}</div>
+        <div style="grid-column: span 2;"><strong style="color: #64748b;">บริษัท:</strong> ${meta.company_name || meta.company || e.payload?.company_name || "-"}</div>
+      </div>
+    </div>
+    `
+        : ""
+    }
+
+    <div>
+      <div style="font-size: 11px; font-weight: 600; color: var(--text-light); text-transform: uppercase; margin-bottom: 4px;">เวลาที่ได้รับ Event</div>
+      <div style="font-size: 12px; color: var(--text-sub);">${e.receivedAt ? new Date(e.receivedAt).toLocaleString("th-TH") : e.timestamp}</div>
+    </div>
+  `;
+
+  modal.classList.add("active");
 }
 
 /* ==========================================================================
@@ -479,6 +649,9 @@ function showToast(msg) {
 function updateCounters() {
   const total = notifications.length;
   const unread = notifications.filter((n) => !n.read).length;
+  const jobNotifs = notifications.filter(
+    (n) => n.category === "job_board" || n.sourceService.toLowerCase().includes("job")
+  );
 
   const unreadBadge = document.getElementById("unread-count-badge");
   if (unreadBadge) unreadBadge.innerText = unread;
@@ -488,9 +661,18 @@ function updateCounters() {
 
   const statUnread = document.getElementById("stat-unread");
   if (statUnread) statUnread.innerText = unread;
+
+  const statJobTotal = document.getElementById("stat-jobboard-total");
+  if (statJobTotal) statJobTotal.innerText = jobNotifs.length;
+
+  const statEventsTotal = document.getElementById("stat-events-total");
+  if (statEventsTotal) statEventsTotal.innerText = recentEvents.length;
 }
 
 function renderAll() {
   updateCounters();
   renderNotifications();
+  renderConnectedSystems();
+  renderJobBoardNotifications();
+  renderEventsLog();
 }

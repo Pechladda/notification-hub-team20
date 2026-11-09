@@ -133,6 +133,27 @@
          ========================================== -->
     <section class="pane" id="pane-systems">
       
+      <!-- Summary Stats (Connected Systems & Synchronized with Pane 1) -->
+      <div class="overview-stats">
+        <div class="stat-box">
+          <div class="stat-title">การแจ้งเตือนจาก Job Board</div>
+          <div class="stat-number" id="stat-jobboard-total">0</div>
+          <div class="stat-desc">รายการที่สร้างขึ้นในกล่องแจ้งเตือน</div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-title">จำนวน Inbound Events</div>
+          <div class="stat-number" style="color: var(--primary);" id="stat-events-total">0</div>
+          <div class="stat-desc">Webhook Events ที่รับและบันทึกแล้ว</div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-title">สถานะระบบ Job Board (Team 18)</div>
+          <div class="stat-number" style="color: #166534;">Online</div>
+          <div class="stat-desc">เชื่อมต่อ Webhook Team 18 เรียบร้อยแล้ว</div>
+        </div>
+      </div>
+
       <div class="services-section">
         <div class="section-head">
           <div class="section-title">ระบบ Job Board (Team 18) ที่เชื่อมต่อกับ Notification Hub</div>
@@ -144,9 +165,22 @@
         </div>
       </div>
 
+      <!-- Job Board Notifications (Synchronized with Pane 1) -->
       <div class="feed-card" style="margin-top: 16px;">
-        <div style="padding: 14px 18px; border-bottom: 1px solid var(--border-light); font-weight: 600; font-size: 13px;">
-          ประวัติ Event ล่าสุดที่ส่งเข้ามายังระบบ (Inbound Log)
+        <div style="padding: 14px 18px; border-bottom: 1px solid var(--border-light); font-weight: 600; font-size: 13px; display: flex; align-items: center; justify-content: space-between;">
+          <span>การแจ้งเตือนที่สร้างจาก Job Board (ส่งถึงนักศึกษา)</span>
+          <span style="font-size: 11px; font-weight: normal; color: var(--text-sub);">สัมพันธ์กับหน้าแรก</span>
+        </div>
+        <div id="jobboard-notifications-container">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Inbound Log (Enriched with notification title, message, and severity) -->
+      <div class="feed-card" style="margin-top: 16px;">
+        <div style="padding: 14px 18px; border-bottom: 1px solid var(--border-light); font-weight: 600; font-size: 13px; display: flex; align-items: center; justify-content: space-between;">
+          <span>ประวัติ Event ล่าสุดที่ส่งเข้ามายังระบบ (Inbound Log)</span>
+          <span style="font-size: 11px; font-weight: normal; color: var(--text-sub);">แสดงความสัมพันธ์กับ Notification</span>
         </div>
         <div id="events-log-container">
           <!-- Rendered by JS -->

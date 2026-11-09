@@ -463,13 +463,46 @@ export default {
         method === "GET"
       ) {
         const query = `
-          SELECT id, event_id, event_type, source_service, status, received_at
-          FROM event_receipts
-          ORDER BY received_at DESC
-          LIMIT 20
+          SELECT 
+            e.id, 
+            e.event_id, 
+            e.event_type, 
+            e.source_service, 
+            e.status, 
+            e.payload,
+            e.received_at,
+            n.id AS notification_id,
+            n.title AS notification_title,
+            n.message AS notification_message,
+            n.severity AS notification_severity,
+            n.read_at AS notification_read_at,
+            n.metadata AS notification_metadata
+          FROM event_receipts e
+          LEFT JOIN notifications n ON n.event_receipt_id = e.id
+          ORDER BY e.received_at DESC
+          LIMIT 25
         `;
         const { results } = await env.DB.prepare(query).all();
-        return jsonResponse({ events: results || [] });
+        const formatted = (results || []).map((row) => {
+          const parsed = safeJsonParse(row.payload) || {};
+          const meta = safeJsonParse(row.notification_metadata) || parsed.metadata || parsed.data || {};
+          return {
+            id: row.id,
+            event_id: row.event_id,
+            event_type: row.event_type,
+            source_service: row.source_service,
+            status: row.status,
+            received_at: row.received_at,
+            notification_id: row.notification_id || null,
+            title: row.notification_title || parsed.title || parsed.subject || `Event: ${row.event_type}`,
+            message: row.notification_message || parsed.message || parsed.description || parsed.content || "",
+            severity: row.notification_severity || normalizeSeverity(parsed.severity || parsed.priority || "low"),
+            read_at: row.notification_read_at || null,
+            metadata: meta,
+            payload: parsed,
+          };
+        });
+        return jsonResponse({ events: formatted });
       }
 
       // 6. Direct Notification Creation: POST /notifications or /api/notifications
