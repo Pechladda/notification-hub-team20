@@ -33,17 +33,30 @@
       </div>
 
       <div class="header-actions">
-        <button class="btn-test" onclick="openTestModal()">
+        <!-- Role Switcher (Student vs Admin) -->
+        <div class="role-switcher">
+          <button class="role-btn active" id="role-btn-student" onclick="switchRole('student')">
+            <span>🎓</span> นักศึกษา (Student)
+          </button>
+          <button class="role-btn" id="role-btn-admin" onclick="switchRole('admin')">
+            <span>🛡️</span> ผู้ดูแลระบบ (Admin)
+          </button>
+        </div>
+
+        <button class="btn-test" id="header-action-btn" onclick="openTestModal()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          <span>ทดสอบส่งการแจ้งเตือน</span>
+          <span id="header-action-label">ทดสอบส่งการแจ้งเตือน</span>
         </button>
 
-        <div class="user-profile">
-          <div class="avatar">ST</div>
-          <span>Student User</span>
+        <div class="user-profile" id="user-profile-widget">
+          <div class="avatar" id="user-avatar">ST</div>
+          <div>
+            <div style="font-weight: 600; font-size: 13px;" id="user-display-name">Student User</div>
+            <div style="font-size: 11px; color: var(--text-sub);" id="user-role-desc">student-01 • นักศึกษา</div>
+          </div>
         </div>
       </div>
     </div>
@@ -54,28 +67,29 @@
        ========================================== -->
   <main class="main-wrapper">
     
-    <!-- Portal Tabs -->
-    <nav class="portal-tabs">
-      <button class="portal-tab active" data-pane="inbox">
-        <span>กล่องแจ้งเตือน</span>
-        <span class="tab-badge" id="unread-count-badge">3</span>
-      </button>
+    <!-- Dynamic Role Context Banner -->
+    <div class="role-banner student" id="role-banner">
+      <div class="role-banner-icon" id="role-banner-icon">🎓</div>
+      <div class="role-banner-text">
+        <div class="role-banner-title" id="role-banner-title">โหมดมุมมอง: นักศึกษา (Student Portal)</div>
+        <div class="role-banner-desc" id="role-banner-desc">
+          สำหรับเปิดอ่านข้อความแจ้งเตือน รับนัดหมายการสัมภาษณ์จากระบบ Job Board (Team 18) และจัดการการตั้งค่าความเป็นส่วนตัว
+        </div>
+      </div>
+      <div class="role-banner-tag" id="role-banner-tag">Student View</div>
+    </div>
 
-      <button class="portal-tab" data-pane="systems">
-        <span>ระบบที่เชื่อมต่อ (Job Board)</span>
-      </button>
-
-      <button class="portal-tab" data-pane="settings">
-        <span>การตั้งค่า</span>
-      </button>
+    <!-- Navigation Tabs Container (Dynamically swapped per role) -->
+    <nav class="portal-tabs" id="portal-tabs-container">
+      <!-- Rendered by JS based on active role -->
     </nav>
 
     <!-- ==========================================
-         PANE 1: INBOX & OVERVIEW
+         STUDENT PANE 1: INBOX & FEED
          ========================================== -->
     <section class="pane active" id="pane-inbox">
       
-      <!-- Summary Stats (Clean 3 Boxes) -->
+      <!-- Student Summary Stats (3 Boxes) -->
       <div class="overview-stats">
         <div class="stat-box">
           <div class="stat-title">การแจ้งเตือนทั้งหมด</div>
@@ -129,60 +143,137 @@
     </section>
 
     <!-- ==========================================
-         PANE 2: CONNECTED SYSTEMS (JOB BOARD)
+         STUDENT PANE 2: SETTINGS & PREFERENCES
          ========================================== -->
-    <section class="pane" id="pane-systems">
+    <section class="pane" id="pane-settings">
       
-      <!-- Summary Stats (Connected Systems & Synchronized with Pane 1) -->
-      <div class="overview-stats">
-        <div class="stat-box">
-          <div class="stat-title">การแจ้งเตือนจาก Job Board</div>
-          <div class="stat-number" id="stat-jobboard-total">0</div>
-          <div class="stat-desc">รายการที่สร้างขึ้นในกล่องแจ้งเตือน</div>
-        </div>
+      <div class="feed-card" style="max-width: 680px; padding: 20px;">
+        <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 4px;">ตั้งค่าการรับการแจ้งเตือน (Notification Preferences)</h3>
+        <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 20px;">
+          สำหรับนักศึกษา: กำหนดช่องทางที่ต้องการรับข้อความและช่วงเวลาห้ามรบกวน (Quiet Hours)
+        </p>
 
-        <div class="stat-box">
-          <div class="stat-title">จำนวน Inbound Events</div>
-          <div class="stat-number" style="color: var(--primary);" id="stat-events-total">0</div>
-          <div class="stat-desc">Webhook Events ที่รับและบันทึกแล้ว</div>
-        </div>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <label style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fafafa; border: 1px solid var(--border-light); border-radius: 6px; cursor: pointer;">
+            <div>
+              <div style="font-weight: 600; font-size: 13px;">การแจ้งเตือนในแอป (In-App Channel)</div>
+              <div style="font-size: 12px; color: var(--text-sub);">แสดงการแจ้งเตือนแบบเรียลไทม์ในระบบ Notification Hub</div>
+            </div>
+            <input type="checkbox" id="pref-in-app" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+          </label>
 
+          <label style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fafafa; border: 1px solid var(--border-light); border-radius: 6px; cursor: pointer;">
+            <div>
+              <div style="font-weight: 600; font-size: 13px;">ส่งแจ้งเตือนทางอีเมล (Email Channel)</div>
+              <div style="font-size: 12px; color: var(--text-sub);">ส่งสรุปและแจ้งเตือนด่วนไปยังอีเมลนักศึกษา (@lamduan.mfu.ac.th)</div>
+            </div>
+            <input type="checkbox" id="pref-email" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+          </label>
+
+          <label style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fafafa; border: 1px solid var(--border-light); border-radius: 6px; cursor: pointer;">
+            <div>
+              <div style="font-weight: 600; font-size: 13px;">ช่วงเวลาห้ามรบกวน (Quiet Hours: 22:00 - 08:00)</div>
+              <div style="font-size: 12px; color: var(--text-sub);">พักการแจ้งเตือนทั่วไปในช่วงเวลากลางคืน (BR-03 / BR-04)</div>
+            </div>
+            <input type="checkbox" id="pref-quiet" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+          </label>
+
+          <button class="btn-submit" onclick="savePreferences()" style="width: 100%; margin-top: 8px;">
+            บันทึกการตั้งค่า (Save Preferences)
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==========================================
+         ADMIN PANE 1: SYSTEM HEALTH & INTEGRATIONS
+         ========================================== -->
+    <section class="pane" id="pane-admin-overview">
+      
+      <!-- Admin KPI Stats (4 Cards) -->
+      <div class="overview-stats" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
         <div class="stat-box">
-          <div class="stat-title">สถานะระบบ Job Board (Team 18)</div>
+          <div class="stat-title">สถานะระบบ Notification Hub</div>
           <div class="stat-number" style="color: #166534;">Online</div>
-          <div class="stat-desc">เชื่อมต่อ Webhook Team 18 เรียบร้อยแล้ว</div>
+          <div class="stat-desc">Cloudflare Workers Edge (&lt; 5ms)</div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-title">Primary Database (Edge D1)</div>
+          <div class="stat-number" style="color: var(--primary);" id="stat-d1-status">Connected</div>
+          <div class="stat-desc">SQLite at Edge (Always-On)</div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-title">Inbound Webhook Events</div>
+          <div class="stat-number" style="color: var(--primary);" id="stat-admin-events">0</div>
+          <div class="stat-desc">รับจาก Team 18 (Job Board)</div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-title">อัตราการจัดส่งสำเร็จ (Success)</div>
+          <div class="stat-number" style="color: #166534;" id="stat-admin-success-rate">100%</div>
+          <div class="stat-desc">In-App & Email Channels</div>
         </div>
       </div>
 
-      <div class="services-section">
-        <div class="section-head">
-          <div class="section-title">ระบบ Job Board (Team 18) ที่เชื่อมต่อกับ Notification Hub</div>
-          <span style="font-size: 12px; color: var(--text-sub);">Webhook API Integration</span>
-        </div>
-
-        <div class="services-grid" id="services-grid-container">
-          <!-- Rendered by JS -->
-        </div>
-      </div>
-
-      <!-- Job Board Notifications (Synchronized with Pane 1) -->
+      <!-- Integration Architecture Card -->
       <div class="feed-card" style="margin-top: 16px;">
-        <div style="padding: 14px 18px; border-bottom: 1px solid var(--border-light); font-weight: 600; font-size: 13px; display: flex; align-items: center; justify-content: space-between;">
-          <span>การแจ้งเตือนที่สร้างจาก Job Board (ส่งถึงนักศึกษา)</span>
-          <span style="font-size: 11px; font-weight: normal; color: var(--text-sub);">สัมพันธ์กับหน้าแรก</span>
+        <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <div style="font-weight: 700; font-size: 14px; color: var(--text-main);">สถาปัตยกรรมการเชื่อมต่อ: Job Board (Team 18) ↔ Notification Hub</div>
+            <div style="font-size: 12px; color: var(--text-sub); margin-top: 2px;">Webhook Integration Specification & Endpoint Mapping</div>
+          </div>
+          <span class="admin-badge success">● Connected & Active</span>
         </div>
-        <div id="jobboard-notifications-container">
-          <!-- Rendered by JS -->
+
+        <div style="padding: 20px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+            <div style="background: #fafafa; padding: 14px; border-radius: 8px; border: 1px solid var(--border-light);">
+              <div style="font-weight: 600; font-size: 12px; color: var(--text-light); text-transform: uppercase;">Inbound Webhook Endpoint</div>
+              <div style="margin-top: 6px;"><code class="admin-code">POST /api/webhooks/jobboard</code></div>
+              <div style="font-size: 12px; color: var(--text-sub); margin-top: 6px;">
+                รองรับ Deduplication ด้วย Unique Event ID และตรวจสอบ HMAC SHA-256
+              </div>
+            </div>
+
+            <div style="background: #fafafa; padding: 14px; border-radius: 8px; border: 1px solid var(--border-light);">
+              <div style="font-weight: 600; font-size: 12px; color: var(--text-light); text-transform: uppercase;">Outbound Callback URL</div>
+              <div style="margin-top: 6px;"><code class="admin-code" style="font-size: 10px;">https://team18-job-board-api.tawee-dev.workers.dev</code></div>
+              <div style="font-size: 12px; color: var(--text-sub); margin-top: 6px;">
+                ส่งสัญญาณตอบกลับ Callback Acknowledgment กลับไปยัง Job Board
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn-small" onclick="checkSystemHealth()">🔍 ตรวจสอบ System Health (/api/health)</button>
+            <button class="btn-small" onclick="checkDbHealth()">🗄️ ตรวจสอบ Database Health (/api/health/database)</button>
+            <button class="btn-small" onclick="openTestModal()">⚡ ส่ง Webhook จำลอง</button>
+          </div>
         </div>
       </div>
 
-      <!-- Inbound Log (Enriched with notification title, message, and severity) -->
-      <div class="feed-card" style="margin-top: 16px;">
-        <div style="padding: 14px 18px; border-bottom: 1px solid var(--border-light); font-weight: 600; font-size: 13px; display: flex; align-items: center; justify-content: space-between;">
-          <span>ประวัติ Event ล่าสุดที่ส่งเข้ามายังระบบ (Inbound Log)</span>
-          <span style="font-size: 11px; font-weight: normal; color: var(--text-sub);">แสดงความสัมพันธ์กับ Notification</span>
+    </section>
+
+    <!-- ==========================================
+         ADMIN PANE 2: INBOUND WEBHOOK LOGS (EVENT RECEIPTS)
+         ========================================== -->
+    <section class="pane" id="pane-admin-events">
+      
+      <div class="feed-card">
+        <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <div style="font-weight: 700; font-size: 14px; color: var(--text-main);">ประวัติ Inbound Webhook Logs (Event Receipts Table)</div>
+            <div style="font-size: 12px; color: var(--text-sub); margin-top: 2px;">
+              บันทึกทุก Event ที่ส่งเข้ามาจากภายนอก พร้อมตรวจสอบ Deduplication & Signature (PRD Event Ingestion)
+            </div>
+          </div>
+          <button class="btn-small" onclick="fetchNotifications()">🔄 รีเฟรช Logs</button>
         </div>
-        <div id="events-log-container">
+
+        <div id="admin-events-table-container">
           <!-- Rendered by JS -->
         </div>
       </div>
@@ -190,34 +281,53 @@
     </section>
 
     <!-- ==========================================
-         PANE 3: SETTINGS & PREFERENCES
+         ADMIN PANE 3: DELIVERY TRACKING & RETRY MANAGEMENT
          ========================================== -->
-    <section class="pane" id="pane-settings">
+    <section class="pane" id="pane-admin-deliveries">
       
-      <div class="feed-card" style="max-width: 680px; padding: 20px;">
-        <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 4px;">ตั้งค่าการรับการแจ้งเตือน (Preferences)</h3>
-        <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 20px;">
-          กำหนดช่องทางที่ต้องการรับข้อความและช่วงเวลาห้ามรบกวน
-        </p>
+      <div class="overview-stats" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+        <div class="stat-box">
+          <div class="stat-title">การจัดส่งทั้งหมด (Deliveries)</div>
+          <div class="stat-number" id="stat-deliv-total">0</div>
+          <div class="stat-desc">In-App + Email Records</div>
+        </div>
 
-        <div style="display: flex; flex-direction: column; gap: 14px;">
-          <label style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fafafa; border: 1px solid var(--border-light); border-radius: 6px; cursor: pointer;">
-            <div>
-              <div style="font-weight: 600; font-size: 13px;">การแจ้งเตือนในแอป (In-App)</div>
-              <div style="font-size: 12px; color: var(--text-sub);">แสดงการแจ้งเตือนแบบเรียลไทม์ในระบบ</div>
+        <div class="stat-box">
+          <div class="stat-title">In-App Deliveries</div>
+          <div class="stat-number" style="color: var(--primary);" id="stat-deliv-inapp">0</div>
+          <div class="stat-desc">จัดส่งผ่านหน้าเว็บ</div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-title">Email Deliveries</div>
+          <div class="stat-number" style="color: #0369a1;" id="stat-deliv-email">0</div>
+          <div class="stat-desc">จัดส่งทางอีเมล</div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-title">สถานะล้มเหลว (Failed Deliveries)</div>
+          <div class="stat-number" style="color: #dc2626;" id="stat-deliv-failed">0</div>
+          <div class="stat-desc">รอ Retry ตามกฎ BR-07</div>
+        </div>
+      </div>
+
+      <div class="feed-card" style="margin-top: 16px;">
+        <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <div style="font-weight: 700; font-size: 14px; color: var(--text-main);">ตารางติดตามการจัดส่ง & จัดการ Retry (Deliveries Operations)</div>
+            <div style="font-size: 12px; color: var(--text-sub); margin-top: 2px;">
+              ตรวจสอบสถานะการส่งรายช่องทาง และสั่ง Retry ตามข้อกำหนด PRD (POST /notifications/:id/retry)
             </div>
-            <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
-          </label>
+          </div>
+          <button class="btn-small" onclick="loadAdminDeliveries()">🔄 รีเฟรช Deliveries</button>
+        </div>
 
-          <label style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fafafa; border: 1px solid var(--border-light); border-radius: 6px; cursor: pointer;">
-            <div>
-              <div style="font-weight: 600; font-size: 13px;">ส่งแจ้งเตือนทางอีเมล (Email)</div>
-              <div style="font-size: 12px; color: var(--text-sub);">ส่งสรุปและแจ้งเตือนด่วนไปยังอีเมลนักศึกษา</div>
-            </div>
-            <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
-          </label>
+        <div class="admin-table-wrap" id="admin-deliveries-table-container">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
 
-          <label style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fafafa; border: 1px solid var(--border-light); border-radius: 6px; cursor: pointer;">
+    </section>
             <div>
               <div style="font-weight: 600; font-size: 13px;">ช่วงเวลาห้ามรบกวน (22:00 - 08:00)</div>
               <div style="font-size: 12px; color: var(--text-sub);">พักการแจ้งเตือนทั่วไปในช่วงเวลากลางคืน</div>

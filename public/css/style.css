@@ -722,3 +722,191 @@ body {
 /* Tab Panes */
 .pane { display: none; }
 .pane.active { display: block; }
+
+/* ==========================================================================
+   Role Switcher & Multi-Role Architecture (Student vs Admin)
+   ========================================================================== */
+.role-switcher {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.role-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.role-btn:hover {
+  color: var(--text-main);
+}
+
+.role-btn.active {
+  background: #ffffff;
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.role-btn.active.role-admin {
+  color: #7c2d12;
+  background: #fff7ed;
+}
+
+/* Role Context Banner */
+.role-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+  border: 1px solid var(--border-light);
+  background: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.role-banner.student {
+  border-left: 4px solid var(--primary);
+  background: #f8fafc;
+}
+
+.role-banner.admin {
+  border-left: 4px solid #ea580c;
+  background: #fffaf5;
+}
+
+.role-banner-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.role-banner-text {
+  flex: 1;
+}
+
+.role-banner-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 2px;
+}
+
+.role-banner-desc {
+  font-size: 12px;
+  color: var(--text-sub);
+  line-height: 1.4;
+}
+
+.role-banner-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.role-banner.student .role-banner-tag {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.role-banner.admin .role-banner-tag {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+/* Admin Table Styles */
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.admin-table th {
+  padding: 12px 16px;
+  background: #f8fafc;
+  color: var(--text-sub);
+  font-weight: 600;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border-light);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.admin-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-body);
+}
+
+.admin-table tr:hover td {
+  background: #fcfdfe;
+}
+
+.admin-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.admin-badge.success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.admin-badge.pending {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.admin-badge.failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.admin-badge.channel {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.admin-code {
+  font-family: monospace;
+  font-size: 11px;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #334155;
+}
+
+/* Role Visibility Helpers */
+body[data-role="student"] .admin-only {
+  display: none !important;
+}
+
+body[data-role="admin"] .student-only {
+  display: none !important;
+}

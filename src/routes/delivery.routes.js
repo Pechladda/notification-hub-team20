@@ -3,6 +3,33 @@ const supabase = require("../config/supabase");
 
 const router = express.Router();
 
+// GET /deliveries or /api/deliveries
+router.get("/", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("deliveries")
+      .select(`
+        id,
+        notification_id,
+        channel,
+        status,
+        attempt_count,
+        last_error,
+        delivered_at,
+        created_at
+      `)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+    return res.status(200).json({ deliveries: data || [] });
+  } catch (error) {
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // GET /deliveries/:id
 router.get("/:id", async (req, res) => {
   try {

@@ -1194,6 +1194,30 @@ export default {
         );
       }
 
+      // 11.9 All Deliveries List: GET /deliveries or /api/deliveries
+      if ((path === "/deliveries" || path === "/api/deliveries") && method === "GET") {
+        const query = `
+          SELECT 
+            d.id, 
+            d.notification_id, 
+            d.channel, 
+            d.status, 
+            d.attempt_count, 
+            d.last_error, 
+            d.delivered_at, 
+            d.created_at,
+            n.title AS notification_title, 
+            n.user_id, 
+            n.severity
+          FROM deliveries d
+          LEFT JOIN notifications n ON n.id = d.notification_id
+          ORDER BY d.created_at DESC
+          LIMIT 50
+        `;
+        const { results } = await env.DB.prepare(query).all();
+        return jsonResponse({ deliveries: results || [] });
+      }
+
       // 12. Delivery Status: GET /deliveries/:id or /api/deliveries/:id
       const delivMatch = path.match(/^\/(?:api\/)?deliveries\/([^/]+)$/);
       if (delivMatch && method === "GET") {
