@@ -419,30 +419,57 @@ export default {
         });
       }
 
-      // 5. Notifications List: GET /notifications/me or /api/notifications/me
+      // 5. Notifications List: GET /notifications/me or /api/notifications/me or /api/notifications
       if (
-        (path === "/notifications/me" || path === "/api/notifications/me") &&
+        (path === "/notifications/me" ||
+          path === "/api/notifications/me" ||
+          path === "/notifications" ||
+          path === "/api/notifications") &&
         method === "GET"
       ) {
         const userId = url.searchParams.get("user_id");
-        if (!userId) {
-          return jsonResponse({ error: "user_id is required" }, 400);
+        let queryResult;
+
+        if (userId && userId !== "all") {
+          const query = `
+            SELECT id, user_id, title, message, severity, deadline, read_at, metadata, created_at
+            FROM notifications
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT 100
+          `;
+          queryResult = await env.DB.prepare(query).bind(userId).all();
+        } else {
+          const query = `
+            SELECT id, user_id, title, message, severity, deadline, read_at, metadata, created_at
+            FROM notifications
+            ORDER BY created_at DESC
+            LIMIT 100
+          `;
+          queryResult = await env.DB.prepare(query).all();
         }
 
-        const query = `
-          SELECT id, user_id, title, message, severity, deadline, read_at, metadata, created_at
-          FROM notifications
-          WHERE user_id = ?
-          ORDER BY created_at DESC
-        `;
-        const { results } = await env.DB.prepare(query).bind(userId).all();
-
-        const formatted = (results || []).map((n) => ({
+        const formatted = (queryResult?.results || []).map((n) => ({
           ...n,
           metadata: safeJsonParse(n.metadata),
         }));
 
         return jsonResponse({ notifications: formatted });
+      }
+
+      // 5.1 Recent Inbound Events: GET /events/recent or /api/events/recent
+      if (
+        (path === "/events/recent" || path === "/api/events/recent") &&
+        method === "GET"
+      ) {
+        const query = `
+          SELECT id, event_id, event_type, source_service, status, received_at
+          FROM event_receipts
+          ORDER BY received_at DESC
+          LIMIT 20
+        `;
+        const { results } = await env.DB.prepare(query).all();
+        return jsonResponse({ events: results || [] });
       }
 
       // 6. Direct Notification Creation: POST /notifications or /api/notifications

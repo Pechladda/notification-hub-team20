@@ -1,10 +1,14 @@
 /**
- * Notification Hub — Frontend Application Logic (Clean & Human-Crafted)
- * Team 20 / POD 5
+ * Notification Hub — Frontend Application Logic
+ * Team 20 — Job Board Integration (Real API Connected)
  */
 
-let notifications = [...INITIAL_NOTIFICATIONS];
-let recentEvents = [...RECENT_EVENTS];
+// ── Configuration ──
+const API_BASE = ""; // same origin (Cloudflare Worker serves both UI & API)
+const DEFAULT_USER_ID = "student-01"; // default user to query notifications
+
+let notifications = [];
+let recentEvents = [];
 let currentFilter = "all";
 let searchQuery = "";
 
@@ -12,8 +16,96 @@ document.addEventListener("DOMContentLoaded", () => {
   initTabs();
   initFilters();
   initSearch();
-  renderAll();
+  fetchNotifications(); // load from real API
 });
+
+/* ==========================================================================
+   Fetch Real Notifications from Backend API
+   ========================================================================== */
+async function fetchNotifications() {
+  const container = document.getElementById("notifications-container");
+  if (container) {
+    container.innerHTML = `
+      <div style="padding: 40px; text-align: center; color: var(--text-light);">
+        <p style="font-size: 13px;">กำลังโหลดข้อมูลจากระบบ...</p>
+      </div>
+    `;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/notifications/me?user_id=${DEFAULT_USER_ID}`);
+    const data = await res.json();
+
+    if (data.notifications && Array.isArray(data.notifications)) {
+      notifications = data.notifications.map(mapApiNotification);
+    } else {
+      notifications = [];
+    }
+  } catch (err) {
+    console.warn("Failed to fetch notifications from API:", err);
+    notifications = [];
+  }
+
+  // Fetch recent events from event_receipts (optional — fallback to empty)
+  try {
+    const evtRes = await fetch(`${API_BASE}/api/events/recent`);
+    if (evtRes.ok) {
+      const evtData = await evtRes.json();
+      recentEvents = (evtData.events || []).map((e) => ({
+        eventId: e.event_id || e.id,
+        service: e.source_service || "Job Board",
+        eventType: e.event_type || "webhook.event",
+        timestamp: e.received_at
+          ? new Date(e.received_at).toLocaleTimeString("th-TH")
+          : "-",
+      }));
+    }
+  } catch {
+    recentEvents = [];
+  }
+
+  renderAll();
+}
+
+/** Map an API notification object to the UI format */
+function mapApiNotification(n) {
+  const meta = typeof n.metadata === "string" ? JSON.parse(n.metadata || "{}") : (n.metadata || {});
+  const sourceService = meta.source_service || "Job Board";
+
+  // Determine category from source_service
+  let category = "job_board";
+  const svc = sourceService.toLowerCase();
+  if (svc.includes("intern")) category = "internship";
+  else if (svc.includes("alumni")) category = "alumni_network";
+  else if (svc.includes("system") || svc.includes("hub")) category = "system";
+
+  return {
+    id: n.id,
+    title: n.title,
+    message: n.message,
+    category,
+    sourceService,
+    severity: n.severity || "low",
+    read: !!n.read_at,
+    createdAt: n.created_at,
+    timeAgo: timeAgo(n.created_at),
+    deadline: n.deadline,
+    metadata: meta,
+  };
+}
+
+/** Simple relative time formatter */
+function timeAgo(isoStr) {
+  if (!isoStr) return "—";
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "เมื่อสักครู่";
+  if (mins < 60) return `${mins} นาทีที่แล้ว`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} ชั่วโมงที่แล้ว`;
+  const days = Math.floor(hrs / 24);
+  return `${days} วันที่แล้ว`;
+}
 
 /* ==========================================================================
    Tab Navigation
@@ -69,6 +161,7 @@ function renderNotifications() {
   if (!container) return;
 
   const filtered = notifications.filter((item) => {
+    // Filter by category — only show job_board related
     if (currentFilter === "unread" && item.read) return false;
     if (currentFilter !== "all" && currentFilter !== "unread" && item.category !== currentFilter) {
       return false;
@@ -86,6 +179,9 @@ function renderNotifications() {
     container.innerHTML = `
       <div style="padding: 40px; text-align: center; color: var(--text-light);">
         <p style="font-size: 13px;">ไม่พบรายการแจ้งเตือน</p>
+        <p style="font-size: 12px; margin-top: 6px; color: var(--text-light);">
+          ลองส่งการแจ้งเตือนจากระบบ Job Board หรือกดปุ่ม "ทดสอบส่งการแจ้งเตือน" ด้านบน
+        </p>
       </div>
     `;
     return;
@@ -93,22 +189,13 @@ function renderNotifications() {
 
   container.innerHTML = filtered
     .map((item) => {
-      const sourceClass =
-        item.category === "internship"
-          ? "badge-internship"
-          : item.category === "job_board"
-          ? "badge-job"
-          : item.category === "alumni_network"
-          ? "badge-alumni"
-          : "badge-system";
-
       const priClass = `pri-${item.severity}`;
 
       return `
         <div class="notif-row ${item.read ? "" : "unread"}" onclick="viewDetail('${item.id}')">
           <div class="notif-main">
             <div class="notif-meta-row">
-              <span class="badge-source ${sourceClass}">${item.sourceService}</span>
+              <span class="badge-source badge-job">Job Board</span>
               <span class="badge-priority ${priClass}">${item.severity}</span>
               <span class="notif-time">${item.timeAgo || "เมื่อสักครู่"}</span>
             </div>
@@ -129,16 +216,32 @@ function renderNotifications() {
     .join("");
 }
 
-function toggleReadStatus(id) {
+async function toggleReadStatus(id) {
   const item = notifications.find((n) => n.id === id);
-  if (item) {
-    item.read = !item.read;
-    renderAll();
+  if (!item) return;
+
+  if (!item.read) {
+    // Mark as read via API
+    try {
+      await fetch(`${API_BASE}/api/notifications/${id}/read`, { method: "POST" });
+    } catch (err) {
+      console.warn("Failed to mark as read via API:", err);
+    }
   }
+
+  item.read = !item.read;
+  renderAll();
 }
 
-function markAllAsRead() {
-  notifications.forEach((n) => (n.read = true));
+async function markAllAsRead() {
+  for (const n of notifications) {
+    if (!n.read) {
+      try {
+        await fetch(`${API_BASE}/api/notifications/${n.id}/read`, { method: "POST" });
+      } catch {}
+      n.read = true;
+    }
+  }
   renderAll();
   showToast("ทำเครื่องหมายอ่านแล้วทั้งหมดเรียบร้อยแล้ว");
 }
@@ -152,36 +255,25 @@ function renderConnectedSystems() {
 
   const services = [
     {
-      name: "Internship Track",
-      desc: "ระบบจัดการฝึกงาน บันทึกประจำสัปดาห์ และการประเมินผลอาจารย์",
-      endpoint: "/api/webhooks/internship",
-      events: "489 events",
-    },
-    {
-      name: "Job Board",
-      desc: "ระบบประกาศรับสมัครงาน ติดตามสถานะ และนัดหมายสัมภาษณ์",
+      name: "Job Board (Team 18)",
+      desc: "ระบบประกาศรับสมัครงาน ติดตามสถานะการสมัคร และนัดหมายสัมภาษณ์",
       endpoint: "/api/webhooks/jobboard",
-      events: "612 events",
-    },
-    {
-      name: "Alumni Network",
-      desc: "เครือข่ายศิษย์เก่า ระบบพี่เลี้ยง (Mentorship) และสัมมนา",
-      endpoint: "/api/webhooks/alumni",
-      events: "345 events",
+      callbackUrl: "https://team18-job-board-api.tawee-dev.workers.dev",
     },
   ];
 
   container.innerHTML = services
     .map(
       (s) => `
-      <div class="service-item">
+      <div class="service-item" style="grid-column: span 3;">
         <div class="service-top">
           <span class="service-name">${s.name}</span>
           <span class="status-dot-wrap"><span class="status-dot"></span>เชื่อมต่อแล้ว</span>
         </div>
         <div class="service-desc">${s.desc}</div>
         <div style="margin-top: 10px; font-size: 11px; color: var(--text-light); font-family: monospace;">
-          ${s.endpoint}
+          Webhook: ${s.endpoint}<br>
+          Callback: ${s.callbackUrl}
         </div>
       </div>
     `
@@ -193,8 +285,17 @@ function renderEventsLog() {
   const container = document.getElementById("events-log-container");
   if (!container) return;
 
+  if (recentEvents.length === 0) {
+    container.innerHTML = `
+      <div style="padding: 16px 18px; font-size: 12px; color: var(--text-light);">
+        ยังไม่มี Event เข้ามา — ข้อมูลจะแสดงเมื่อ Job Board ส่ง Webhook เข้ามา
+      </div>
+    `;
+    return;
+  }
+
   container.innerHTML = recentEvents
-    .slice(0, 6)
+    .slice(0, 10)
     .map(
       (e) => `
       <div style="padding: 10px 18px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
@@ -218,6 +319,10 @@ function viewDetail(id) {
   const item = notifications.find((n) => n.id === id);
   if (!item) return;
 
+  // Mark as read via API
+  if (!item.read) {
+    fetch(`${API_BASE}/api/notifications/${id}/read`, { method: "POST" }).catch(() => {});
+  }
   item.read = true;
   renderAll();
 
@@ -241,7 +346,7 @@ function viewDetail(id) {
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
       <div>
         <div style="font-size: 11px; font-weight: 600; color: var(--text-light); text-transform: uppercase; margin-bottom: 2px;">ระบบต้นทาง</div>
-        <div style="font-size: 13px; font-weight: 600; color: var(--primary);">${item.sourceService}</div>
+        <div style="font-size: 13px; font-weight: 600; color: var(--primary);">Job Board</div>
       </div>
       <div>
         <div style="font-size: 11px; font-weight: 600; color: var(--text-light); text-transform: uppercase; margin-bottom: 2px;">ระดับความสำคัญ</div>
@@ -259,7 +364,7 @@ function viewDetail(id) {
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #1e293b;">
         <div><strong style="color: #64748b;">รหัสตำแหน่ง:</strong> #${item.metadata.job_id || "-"}</div>
-        <div><strong style="color: #64748b;">สถานะ:</strong> ${item.metadata.new_status || item.metadata.status || "Shortlisted"}</div>
+        <div><strong style="color: #64748b;">สถานะ:</strong> ${item.metadata.new_status || item.metadata.status || "-"}</div>
         <div style="grid-column: span 2;"><strong style="color: #64748b;">ตำแหน่ง:</strong> ${item.metadata.job_title || item.metadata.position || "-"}</div>
         <div style="grid-column: span 2;"><strong style="color: #64748b;">บริษัท:</strong> ${item.metadata.company_name || item.metadata.company || "-"}</div>
       </div>
@@ -269,81 +374,12 @@ function viewDetail(id) {
     }
 
     <div>
-      <div style="font-size: 11px; font-weight: 600; color: var(--text-light); text-transform: uppercase; margin-bottom: 4px;">ช่องทางที่ส่ง (Channels)</div>
-      <div style="display: flex; gap: 6px;">
-        <span style="font-size: 11px; background: #ecfdf5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-weight: 500;">In-App Notification</span>
-        <span style="font-size: 11px; background: #ecfdf5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-weight: 500;">Email Notification</span>
-      </div>
-    </div>
-
-    <!-- AI-Assisted Flow & Deterministic Fallback (FR-09 & BR-05) -->
-    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-        <span style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase;">
-          AI-Assisted Summarization (FR-09)
-        </span>
-        <button class="btn-small" style="font-size: 11px; padding: 2px 8px; cursor: pointer;" onclick="runAiSummarize('${item.id}')">
-          🤖 สรุปด้วย AI
-        </button>
-      </div>
-      <div id="ai-summary-box-${item.id}" style="font-size: 12px; color: #64748b; line-height: 1.5;">
-        กดปุ่มเพื่อทดสอบระบบ AI-Assisted Flow พร้อม Deterministic Fallback ตามข้อกำหนด
-      </div>
+      <div style="font-size: 11px; font-weight: 600; color: var(--text-light); text-transform: uppercase; margin-bottom: 4px;">เวลา</div>
+      <div style="font-size: 12px; color: var(--text-sub);">${item.createdAt ? new Date(item.createdAt).toLocaleString("th-TH") : "-"}</div>
     </div>
   `;
 
   modal.classList.add("active");
-}
-
-async function runAiSummarize(id) {
-  const item = notifications.find((n) => n.id === id);
-  const box = document.getElementById(`ai-summary-box-${id}`);
-  if (!item || !box) return;
-
-  box.innerHTML = `<span style="color: var(--primary);">กำลังประมวลผลผ่าน AI-Assisted Flow...</span>`;
-
-  try {
-    const res = await fetch("/api/notifications/ai-summarize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: item.title,
-        message: item.message,
-        category: item.category,
-        severity: item.severity,
-      }),
-    });
-
-    const data = await res.json();
-    if (data.flow === "ai_assisted") {
-      box.innerHTML = `
-        <div style="margin-bottom: 4px;">
-          <span style="background: #ecfdf5; color: #065f46; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">🤖 AI-ASSISTED FLOW</span>
-        </div>
-        <div style="color: #0f172a; font-weight: 500;">${data.summary}</div>
-      `;
-    } else {
-      box.innerHTML = `
-        <div style="margin-bottom: 4px;">
-          <span style="background: #eff6ff; color: #1e40af; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">🛡️ DETERMINISTIC FALLBACK</span>
-        </div>
-        <div style="color: #334155; font-weight: 500;">${data.summary}</div>
-        <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-style: italic;">
-          เหตุผล Fallback: ${data.fallback_reason}
-        </div>
-      `;
-    }
-  } catch (err) {
-    box.innerHTML = `
-      <div style="margin-bottom: 4px;">
-        <span style="background: #fef2f2; color: #991b1b; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">🛡️ DETERMINISTIC FALLBACK</span>
-      </div>
-      <div style="color: #334155;">${item.message}</div>
-      <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-style: italic;">
-        ทำงานผ่าน Deterministic Fallback อัตโนมัติ (ระบบทำงานต่อเนื่อง 100%)
-      </div>
-    `;
-  }
 }
 
 function openTestModal() {
@@ -356,74 +392,69 @@ function closeModal(modalId) {
   if (modal) modal.classList.remove("active");
 }
 
-function quickFill(type) {
-  const source = document.getElementById("test-source");
-  const title = document.getElementById("test-title");
-  const msg = document.getElementById("test-message");
-  const pri = document.getElementById("test-priority");
-
-  if (type === "intern") {
-    source.value = "internship";
-    title.value = "บันทึกการฝึกงานสัปดาห์ที่ 5 ผ่านการตรวจแล้ว";
-    msg.value = "อาจารย์ที่ปรึกษาได้ลงความเห็นและให้คะแนนบันทึกการฝึกงานเรียบร้อยแล้ว";
-    pri.value = "high";
-  } else if (type === "job") {
-    source.value = "job_board";
-    title.value = "บริษัท Shopee นัดสัมภาษณ์ตำแหน่ง Frontend Engineer";
-    msg.value = "นัดสัมภาษณ์รอบแรกวันจันทร์หน้า เวลา 10:00 น. ผ่าน Google Meet";
-    pri.value = "critical";
-  } else if (type === "alumni") {
-    source.value = "alumni_network";
-    title.value = "พี่เลี้ยง (Mentor) ตอบรับคำขอแล้ว";
-    msg.value = "พี่แอนนา (Alumni Batch 24) ตอบรับคำขอจับคู่พี่เลี้ยงของคุณแล้ว";
-    pri.value = "high";
-  }
-}
-
-function handleSendTest(e) {
+/** Send a real test notification via the API */
+async function handleSendTest(e) {
   e.preventDefault();
 
-  const sourceVal = document.getElementById("test-source").value;
   const titleVal = document.getElementById("test-title").value.trim();
   const msgVal = document.getElementById("test-message").value.trim();
   const priVal = document.getElementById("test-priority").value;
 
-  const sourceName =
-    sourceVal === "internship"
-      ? "Internship Track"
-      : sourceVal === "job_board"
-      ? "Job Board"
-      : "Alumni Network";
+  if (!titleVal || !msgVal) {
+    showToast("กรุณากรอกหัวข้อและข้อความ");
+    return;
+  }
 
-  const newNotif = {
-    id: `notif-${Date.now()}`,
-    title: titleVal,
-    message: msgVal,
-    category: sourceVal,
-    sourceService: sourceName,
-    severity: priVal,
-    read: false,
-    createdAt: new Date().toISOString(),
-    timeAgo: "เมื่อสักครู่",
-    deliveries: [
-      { channel: "in_app", status: "delivered" },
-      { channel: "email", status: "delivered" },
-    ],
-  };
+  // Send to real backend API via webhook endpoint
+  try {
+    const res = await fetch(`${API_BASE}/api/webhooks/jobboard`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: DEFAULT_USER_ID,
+        title: titleVal,
+        message: msgVal,
+        severity: priVal,
+        eventType: "job_board.test",
+        metadata: {
+          source_service: "Job Board",
+        },
+      }),
+    });
 
-  const newEvent = {
-    eventId: `evt-${Date.now().toString().slice(-5)}`,
-    service: sourceName,
-    eventType: `${sourceVal}.event`,
-    timestamp: new Date().toLocaleTimeString("th-TH"),
-  };
+    const data = await res.json();
 
-  notifications.unshift(newNotif);
-  recentEvents.unshift(newEvent);
+    if (res.ok) {
+      closeModal("test-modal");
+      showToast("ส่งการแจ้งเตือนไปยังระบบเรียบร้อยแล้ว!");
+      // Reload notifications from API to show the new one
+      await fetchNotifications();
+    } else {
+      showToast(`เกิดข้อผิดพลาด: ${data.error || "ไม่สามารถส่งได้"}`);
+    }
+  } catch (err) {
+    showToast(`ไม่สามารถเชื่อมต่อ API ได้: ${err.message}`);
+  }
+}
 
-  closeModal("test-modal");
-  renderAll();
-  showToast(`ส่งการแจ้งเตือนจาก ${sourceName} สำเร็จ`);
+function quickFill(type) {
+  const title = document.getElementById("test-title");
+  const msg = document.getElementById("test-message");
+  const pri = document.getElementById("test-priority");
+
+  if (type === "interview") {
+    title.value = "บริษัท Shopee นัดสัมภาษณ์ตำแหน่ง Frontend Engineer";
+    msg.value = "นัดสัมภาษณ์รอบแรกวันจันทร์หน้า เวลา 10:00 น. ผ่าน Google Meet";
+    pri.value = "critical";
+  } else if (type === "status") {
+    title.value = "สถานะใบสมัครเปลี่ยนแปลง: Shortlisted";
+    msg.value = "ใบสมัครของคุณสำหรับตำแหน่ง Backend Developer ที่ LINE MAN Wongnai ได้เปลี่ยนสถานะเป็น Shortlisted แล้ว";
+    pri.value = "high";
+  } else if (type === "newjob") {
+    title.value = "ตำแหน่งงานใหม่ตรงกับโปรไฟล์ของคุณ";
+    msg.value = "ตำแหน่ง Junior Cloud & DevOps Specialist เปิดรับสมัครใหม่ มีคุณสมบัติตรงกับโปรไฟล์ของคุณ 94%";
+    pri.value = "medium";
+  }
 }
 
 function showToast(msg) {
@@ -446,12 +477,14 @@ function showToast(msg) {
    Badges & Counters
    ========================================================================== */
 function updateCounters() {
+  const total = notifications.length;
   const unread = notifications.filter((n) => !n.read).length;
+
   const unreadBadge = document.getElementById("unread-count-badge");
   if (unreadBadge) unreadBadge.innerText = unread;
 
   const statTotal = document.getElementById("stat-total");
-  if (statTotal) statTotal.innerText = notifications.length;
+  if (statTotal) statTotal.innerText = total;
 
   const statUnread = document.getElementById("stat-unread");
   if (statUnread) statUnread.innerText = unread;

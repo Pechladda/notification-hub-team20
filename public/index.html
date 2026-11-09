@@ -62,7 +62,7 @@
       </button>
 
       <button class="portal-tab" data-pane="systems">
-        <span>ระบบที่เชื่อมต่อ (3 ระบบ)</span>
+        <span>ระบบที่เชื่อมต่อ (Job Board)</span>
       </button>
 
       <button class="portal-tab" data-pane="settings">
@@ -79,20 +79,20 @@
       <div class="overview-stats">
         <div class="stat-box">
           <div class="stat-title">การแจ้งเตือนทั้งหมด</div>
-          <div class="stat-number" id="stat-total">7</div>
-          <div class="stat-desc">จากทุกระบบใน POD 5</div>
+          <div class="stat-number" id="stat-total">0</div>
+          <div class="stat-desc">จากระบบ Job Board (Team 18)</div>
         </div>
 
         <div class="stat-box">
           <div class="stat-title">ยังไม่ได้อ่าน</div>
-          <div class="stat-number" style="color: #dc2626;" id="stat-unread">3</div>
+          <div class="stat-number" style="color: #dc2626;" id="stat-unread">0</div>
           <div class="stat-desc">รอเปิดอ่าน</div>
         </div>
 
         <div class="stat-box">
-          <div class="stat-title">สถานะระบบ POD 5</div>
-          <div class="stat-number" style="color: #166534;">3 / 3</div>
-          <div class="stat-desc">Internship, Job Board, Alumni พร้อมใช้งาน</div>
+          <div class="stat-title">สถานะระบบ Job Board</div>
+          <div class="stat-number" style="color: #166534;">Online</div>
+          <div class="stat-desc">เชื่อมต่อ Webhook Team 18 เรียบร้อยแล้ว</div>
         </div>
       </div>
 
@@ -103,10 +103,7 @@
           <div class="filter-group">
             <button class="filter-btn active" data-filter="all">ทั้งหมด</button>
             <button class="filter-btn" data-filter="unread">ยังไม่ได้อ่าน</button>
-            <button class="filter-btn" data-filter="internship">Internship Track</button>
             <button class="filter-btn" data-filter="job_board">Job Board</button>
-            <button class="filter-btn" data-filter="alumni_network">Alumni Network</button>
-            <button class="filter-btn" data-filter="system">ระบบส่วนกลาง</button>
           </div>
 
           <div style="display: flex; gap: 8px; align-items: center;">
@@ -132,13 +129,13 @@
     </section>
 
     <!-- ==========================================
-         PANE 2: CONNECTED SYSTEMS (POD 5)
+         PANE 2: CONNECTED SYSTEMS (JOB BOARD)
          ========================================== -->
     <section class="pane" id="pane-systems">
       
       <div class="services-section">
         <div class="section-head">
-          <div class="section-title">ระบบในกลุ่ม POD 5 ที่เชื่อมต่อกับ Notification Hub</div>
+          <div class="section-title">ระบบ Job Board (Team 18) ที่เชื่อมต่อกับ Notification Hub</div>
           <span style="font-size: 12px; color: var(--text-sub);">Webhook API Integration</span>
         </div>
 
@@ -226,30 +223,28 @@
       </div>
       <div class="modal-body-content">
         
-        <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-          <button class="btn-small" onclick="quickFill('intern')">ตัวอย่าง: บันทึกฝึกงาน</button>
-          <button class="btn-small" onclick="quickFill('job')">ตัวอย่าง: นัดสัมภาษณ์งาน</button>
-          <button class="btn-small" onclick="quickFill('alumni')">ตัวอย่าง: ศิษย์เก่า</button>
+        <div style="display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap;">
+          <button class="btn-small" onclick="quickFill('interview')">ตัวอย่าง: นัดสัมภาษณ์งาน</button>
+          <button class="btn-small" onclick="quickFill('status')">ตัวอย่าง: ผลการสมัครงาน</button>
+          <button class="btn-small" onclick="quickFill('newjob')">ตัวอย่าง: แนะนำงานใหม่</button>
         </div>
 
         <form id="test-form" onsubmit="handleSendTest(event)">
           <div class="form-group">
             <label class="form-label">ระบบต้นทาง</label>
             <select class="form-control" id="test-source">
-              <option value="internship">Internship Track</option>
-              <option value="job_board">Job Board</option>
-              <option value="alumni_network">Alumni Network</option>
+              <option value="job_board" selected>Job Board (Team 18)</option>
             </select>
           </div>
 
           <div class="form-group" style="margin-top: 10px;">
             <label class="form-label">หัวข้อ</label>
-            <input type="text" class="form-control" id="test-title" required value="อนุมัติเอกสารขอฝึกงาน">
+            <input type="text" class="form-control" id="test-title" required value="นัดสัมภาษณ์งานตำแหน่ง Frontend Engineer">
           </div>
 
           <div class="form-group" style="margin-top: 10px;">
             <label class="form-label">ข้อความ</label>
-            <textarea class="form-control" id="test-message" rows="3" required>อาจารย์ที่ปรึกษาได้อนุมัติเอกสารขอฝึกงานเรียบร้อยแล้ว</textarea>
+            <textarea class="form-control" id="test-message" rows="3" required>บริษัท LINE MAN Wongnai ได้ทำการนัดหมายสัมภาษณ์รอบแรก วันพรุ่งนี้ เวลา 10:00 - 11:30 น. ผ่าน Google Meet</textarea>
           </div>
 
           <div class="form-group" style="margin-top: 10px;">

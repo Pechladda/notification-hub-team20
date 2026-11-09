@@ -4,6 +4,23 @@ const supabase = require("../config/supabase");
 
 const router = express.Router();
 
+router.get("/recent", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("event_receipts")
+      .select("id, event_id, event_type, source_service, status, received_at")
+      .order("received_at", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+    return res.status(200).json({ events: data || [] });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 router.post("/", async (req, res) => {
   try {
     const signature = req.headers["x-event-signature"];

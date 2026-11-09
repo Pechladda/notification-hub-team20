@@ -8,15 +8,7 @@ router.get("/me", async (req, res) => {
   try {
     const { user_id } = req.query;
 
-    // Validate user_id
-    if (!user_id) {
-      return res.status(400).json({
-        error: "user_id is required",
-      });
-    }
-
-    // Get notifications for this user
-    const { data, error } = await supabase
+    let query = supabase
       .from("notifications")
       .select(`
         id,
@@ -29,8 +21,13 @@ router.get("/me", async (req, res) => {
         metadata,
         created_at
       `)
-      .eq("user_id", user_id)
       .order("created_at", { ascending: false });
+
+    if (user_id && user_id !== "all") {
+      query = query.eq("user_id", user_id);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Failed to fetch notifications:", error);
