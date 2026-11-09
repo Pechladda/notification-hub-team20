@@ -364,6 +364,11 @@ function switchRole(role) {
   const itemStudent = document.getElementById("role-item-student");
   const itemAdmin = document.getElementById("role-item-admin");
 
+  const actionLabel = document.getElementById("header-action-label");
+  const avatar = document.getElementById("user-avatar");
+  const userName = document.getElementById("user-display-name");
+  const roleDesc = document.getElementById("user-role-desc");
+
   if (role === "student") {
     if (checkStudent) checkStudent.style.visibility = "visible";
     if (checkAdmin) checkAdmin.style.visibility = "hidden";
@@ -376,24 +381,7 @@ function switchRole(role) {
     if (itemAdmin) itemAdmin.classList.add("active");
   }
 
-  const banner = document.getElementById("role-banner");
-  const bannerTitle = document.getElementById("role-banner-title");
-  const bannerDesc = document.getElementById("role-banner-desc");
-  const bannerTag = document.getElementById("role-banner-tag");
-
-  const actionLabel = document.getElementById("header-action-label");
-  const avatar = document.getElementById("user-avatar");
-  const userName = document.getElementById("user-display-name");
-  const roleDesc = document.getElementById("user-role-desc");
-
   if (role === "student") {
-    if (banner) {
-      banner.className = "role-banner student";
-      if (bannerTitle) bannerTitle.textContent = dict.banner_student_title;
-      if (bannerDesc) bannerDesc.textContent = dict.banner_student_desc;
-      if (bannerTag) bannerTag.textContent = dict.banner_student_tag;
-    }
-
     if (actionLabel) actionLabel.textContent = dict.test_btn;
     if (avatar) {
       avatar.innerText = "ST";
@@ -406,13 +394,6 @@ function switchRole(role) {
     renderRoleTabs();
     activatePane("inbox");
   } else {
-    if (banner) {
-      banner.className = "role-banner admin";
-      if (bannerTitle) bannerTitle.textContent = dict.banner_admin_title;
-      if (bannerDesc) bannerDesc.textContent = dict.banner_admin_desc;
-      if (bannerTag) bannerTag.textContent = dict.banner_admin_tag;
-    }
-
     if (actionLabel) actionLabel.textContent = dict.test_btn_admin;
     if (avatar) {
       avatar.innerText = "AD";
@@ -1147,18 +1128,28 @@ function renderAdminEventsTable() {
         ${recentEvents
           .map((e) => `
             <tr>
-              <td><code class="admin-code">${e.eventId ? e.eventId.slice(0, 18) : e.id.slice(0, 18)}...</code></td>
+              <td><span class="admin-event-chip" title="${escapeHtml(e.eventId || e.id)}">${e.eventId ? escapeHtml(e.eventId.slice(0, 16)) : escapeHtml(e.id.slice(0, 16))}...</span></td>
               <td>
-                <span class="badge-source badge-job">Job Board</span>
-                <code class="admin-code" style="color: var(--primary); font-weight: 600;">${escapeHtml(e.eventType)}</code>
+                <div class="service-type-cell">
+                  <span class="badge-source badge-job">Job Board</span>
+                  <span class="event-type-label">${escapeHtml(e.eventType)}</span>
+                </div>
               </td>
-              <td><span class="admin-badge success">HMAC SHA-256</span></td>
-              <td><span class="admin-badge success">${(e.status || "accepted").toUpperCase()}</span></td>
-              <td><div style="max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;">${escapeHtml(e.title)}</div></td>
-              <td style="font-size: 11px; color: var(--text-sub);">${e.timestamp}</td>
+              <td><span class="admin-badge security-badge">HMAC SHA-256</span></td>
+              <td><span class="admin-badge success"><span class="status-dot"></span>${(e.status || "accepted").toUpperCase()}</span></td>
               <td>
-                <button class="btn-small" onclick="viewEventDetail('${e.id}')">
-                  ${currentLang === "th" ? "ดู JSON" : "View JSON"}
+                <div class="notification-title-cell" title="${escapeHtml(e.title)}">
+                  ${escapeHtml(e.title)}
+                </div>
+              </td>
+              <td><span class="received-time-label">${e.timestamp}</span></td>
+              <td>
+                <button class="btn-payload" onclick="viewEventDetail('${e.id}')">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="16 18 22 12 16 6"></polyline>
+                    <polyline points="8 6 2 12 8 18"></polyline>
+                  </svg>
+                  <span>${currentLang === "th" ? "ดูรายละเอียด Payload" : "View Payload"}</span>
                 </button>
               </td>
             </tr>
