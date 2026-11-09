@@ -290,7 +290,7 @@ export default {
   <div class="card">
     <span class="badge">Cloudflare Workers + D1</span>
     <span class="badge badge-status">● Service Online</span>
-    <h1>🔔 Notification Hub — Team 20</h1>
+    <h1>Notification Hub — Team 20</h1>
     <p>Deployed on <strong>Cloudflare Workers</strong> powered by <strong>Cloudflare D1 (SQLite Edge Database)</strong> with Supabase as secondary backup.</p>
     <div class="endpoints">
       <div class="endpoint-item"><span class="method get">GET</span> <span class="path">/api/health</span></div>
