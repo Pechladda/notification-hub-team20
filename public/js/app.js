@@ -7,7 +7,7 @@
 const API_BASE = ""; // same origin (Cloudflare Worker serves both UI & API)
 const DEFAULT_USER_ID = "student-01"; // default user to query notifications
 
-let currentRole = localStorage.getItem("nh_role") || "student";
+let currentRole = "admin";
 let currentLang = localStorage.getItem("nh_lang") || "th";
 let notifications = [];
 let recentEvents = [];
@@ -351,64 +351,31 @@ function timeAgo(isoStr) {
 /* ==========================================================================
    Multi-Role Navigation & Switching (Student vs Admin, No Emojis)
    ========================================================================== */
-function switchRole(role) {
-  currentRole = role;
-  localStorage.setItem("nh_role", role);
-  document.body.setAttribute("data-role", role);
+function switchRole(role = "admin") {
+  currentRole = "admin";
+  localStorage.setItem("nh_role", "admin");
+  document.body.setAttribute("data-role", "admin");
 
   const dict = i18n[currentLang] || i18n.th;
-
-  // Dropdown checkmark state
-  const checkStudent = document.getElementById("check-student");
-  const checkAdmin = document.getElementById("check-admin");
-  const itemStudent = document.getElementById("role-item-student");
-  const itemAdmin = document.getElementById("role-item-admin");
 
   const actionLabel = document.getElementById("header-action-label");
   const avatar = document.getElementById("user-avatar");
   const userName = document.getElementById("user-display-name");
   const roleDesc = document.getElementById("user-role-desc");
 
-  if (role === "student") {
-    if (checkStudent) checkStudent.style.visibility = "visible";
-    if (checkAdmin) checkAdmin.style.visibility = "hidden";
-    if (itemStudent) itemStudent.classList.add("active");
-    if (itemAdmin) itemAdmin.classList.remove("active");
-  } else {
-    if (checkStudent) checkStudent.style.visibility = "hidden";
-    if (checkAdmin) checkAdmin.style.visibility = "visible";
-    if (itemStudent) itemStudent.classList.remove("active");
-    if (itemAdmin) itemAdmin.classList.add("active");
+  if (actionLabel) actionLabel.textContent = dict.test_btn_admin;
+  if (avatar) {
+    avatar.innerText = "AD";
+    avatar.style.background = "#e0f2fe";
+    avatar.style.color = "#0369a1";
   }
+  if (userName) userName.innerText = dict.user_admin_name;
+  if (roleDesc) roleDesc.innerText = dict.user_admin_role;
 
-  if (role === "student") {
-    if (actionLabel) actionLabel.textContent = dict.test_btn;
-    if (avatar) {
-      avatar.innerText = "ST";
-      avatar.style.background = "var(--primary-soft)";
-      avatar.style.color = "var(--primary)";
-    }
-    if (userName) userName.innerText = dict.user_student_name;
-    if (roleDesc) roleDesc.innerText = dict.user_student_role;
-
-    renderRoleTabs();
-    activatePane("inbox");
-  } else {
-    if (actionLabel) actionLabel.textContent = dict.test_btn_admin;
-    if (avatar) {
-      avatar.innerText = "AD";
-      avatar.style.background = "#e0f2fe";
-      avatar.style.color = "#0369a1";
-    }
-    if (userName) userName.innerText = dict.user_admin_name;
-    if (roleDesc) roleDesc.innerText = dict.user_admin_role;
-
-    renderRoleTabs();
-    activatePane("admin-overview");
-    loadAdminDeliveries();
-    renderAdminEventsTable();
-  }
-
+  renderRoleTabs();
+  activatePane("admin-overview");
+  loadAdminDeliveries();
+  renderAdminEventsTable();
   updateCounters();
 }
 
@@ -417,31 +384,18 @@ function renderRoleTabs() {
   if (!container) return;
   const dict = i18n[currentLang] || i18n.th;
 
-  if (currentRole === "student") {
-    const unread = notifications.filter((n) => !n.read).length;
-    container.innerHTML = `
-      <button class="portal-tab active" data-pane="inbox">
-        <span>${dict.tab_inbox}</span>
-        <span class="tab-badge" id="unread-count-badge">${unread}</span>
-      </button>
-      <button class="portal-tab" data-pane="settings">
-        <span>${dict.tab_settings}</span>
-      </button>
-    `;
-  } else {
-    container.innerHTML = `
-      <button class="portal-tab active" data-pane="admin-overview">
-        <span>${dict.tab_overview}</span>
-      </button>
-      <button class="portal-tab" data-pane="admin-events">
-        <span>${dict.tab_inbound_logs}</span>
-        <span class="tab-badge" id="admin-events-badge">${recentEvents.length}</span>
-      </button>
-      <button class="portal-tab" data-pane="admin-deliveries">
-        <span>${dict.tab_deliveries}</span>
-      </button>
-    `;
-  }
+  container.innerHTML = `
+    <button class="portal-tab active" data-pane="admin-overview">
+      <span>${dict.tab_overview}</span>
+    </button>
+    <button class="portal-tab" data-pane="admin-events">
+      <span>${dict.tab_inbound_logs}</span>
+      <span class="tab-badge" id="admin-events-badge">${recentEvents.length}</span>
+    </button>
+    <button class="portal-tab" data-pane="admin-deliveries">
+      <span>${dict.tab_deliveries}</span>
+    </button>
+  `;
 
   container.querySelectorAll(".portal-tab").forEach((tab) => {
     tab.addEventListener("click", () => {

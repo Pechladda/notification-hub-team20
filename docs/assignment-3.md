@@ -418,6 +418,12 @@ The Notification Hub backend provides REST APIs for database operations.
 
 ## Base URL
 
+For production (Cloudflare Workers):
+
+```text
+https://notification-hub-team20.siriwimonchst.workers.dev
+```
+
 For local development:
 
 ```text

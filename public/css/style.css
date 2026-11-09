@@ -764,13 +764,8 @@ body {
   color: var(--border-light);
 }
 
-/* User Profile Dropdown Button */
-.user-dropdown-container {
-  position: relative;
-  display: inline-block;
-}
-
-.user-profile-btn {
+/* User Profile Badge (Single Admin View) */
+.user-profile-badge {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -778,15 +773,11 @@ body {
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
   padding: 5px 12px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  font-family: inherit;
-  text-align: left;
 }
 
-.user-profile-btn:hover {
-  background: var(--bg-subtle);
-  border-color: #cbd5e1;
+.avatar.admin-avatar {
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 .user-info {

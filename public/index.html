@@ -40,44 +40,21 @@
           <button class="lang-btn" id="lang-btn-en" onclick="switchLanguage('en')">EN</button>
         </div>
 
-        <!-- Action Button (Contextual per role) -->
+        <!-- Action Button (Admin Operations) -->
         <button class="btn-test" id="header-action-btn" onclick="openTestModal()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          <span id="header-action-label" data-i18n="test_btn">ทดสอบส่งการแจ้งเตือน</span>
+          <span id="header-action-label" data-i18n="test_btn_admin">ส่ง Webhook จำลอง</span>
         </button>
 
-        <!-- User Profile with Role Selection Dropdown -->
-        <div class="user-dropdown-container" id="user-dropdown-container">
-          <button class="user-profile-btn" id="user-profile-btn" onclick="toggleUserDropdown(event)" aria-haspopup="true">
-            <div class="avatar" id="user-avatar">ST</div>
-            <div class="user-info">
-              <div class="user-name" id="user-display-name">Student User</div>
-              <div class="user-role" id="user-role-desc">นักศึกษา</div>
-            </div>
-            <svg class="dropdown-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
-
-          <div class="user-dropdown-menu" id="user-dropdown-menu" onclick="event.stopPropagation()">
-            <div class="dropdown-header" data-i18n="dropdown_header">เลือกบทบาท (Role)</div>
-            <button class="dropdown-item active" id="role-item-student" onclick="selectRole('student')">
-              <div class="dropdown-item-check" id="check-student">✓</div>
-              <div class="dropdown-item-text">
-                <div class="dropdown-item-title" data-i18n="role_student_title">นักศึกษา (Student)</div>
-                <div class="dropdown-item-sub" data-i18n="role_student_sub">กล่องแจ้งเตือนและการตั้งค่า</div>
-              </div>
-            </button>
-            <button class="dropdown-item" id="role-item-admin" onclick="selectRole('admin')">
-              <div class="dropdown-item-check" id="check-admin" style="visibility: hidden;">✓</div>
-              <div class="dropdown-item-text">
-                <div class="dropdown-item-title" data-i18n="role_admin_title">ผู้ดูแลระบบ (Admin)</div>
-                <div class="dropdown-item-sub" data-i18n="role_admin_sub">สถิติระบบ, Webhook Logs และ Retry</div>
-              </div>
-            </button>
+        <!-- Admin Profile (Single Administrator Persona) -->
+        <div class="user-profile-badge">
+          <div class="avatar admin-avatar" id="user-avatar">AD</div>
+          <div class="user-info">
+            <div class="user-name" id="user-display-name">System Operations</div>
+            <div class="user-role" id="user-role-desc">Admin Console</div>
           </div>
         </div>
 
@@ -90,117 +67,15 @@
        ========================================== -->
   <main class="main-wrapper">
     
-    <!-- Navigation Tabs Container (Dynamically swapped per role) -->
+    <!-- Navigation Tabs Container (Admin Console) -->
     <nav class="portal-tabs" id="portal-tabs-container">
-      <!-- Rendered by JS based on active role -->
+      <!-- Rendered by JS -->
     </nav>
-
-    <!-- ==========================================
-         STUDENT PANE 1: INBOX & FEED
-         ========================================== -->
-    <section class="pane active" id="pane-inbox">
-      
-      <!-- Student Summary Stats (3 Boxes) -->
-      <div class="overview-stats">
-        <div class="stat-box">
-          <div class="stat-title" data-i18n="stat_total_notifs">การแจ้งเตือนทั้งหมด</div>
-          <div class="stat-number" id="stat-total">0</div>
-          <div class="stat-desc" data-i18n="stat_from_jobboard">จากระบบ Job Board (Team 18)</div>
-        </div>
-
-        <div class="stat-box">
-          <div class="stat-title" data-i18n="stat_unread">ยังไม่ได้อ่าน</div>
-          <div class="stat-number" style="color: #dc2626;" id="stat-unread">0</div>
-          <div class="stat-desc" data-i18n="stat_awaiting_read">รอเปิดอ่าน</div>
-        </div>
-
-        <div class="stat-box">
-          <div class="stat-title" data-i18n="stat_jobboard_status">สถานะระบบ Job Board</div>
-          <div class="stat-number" style="color: #166534;">Online</div>
-          <div class="stat-desc" data-i18n="stat_webhook_connected">เชื่อมต่อ Webhook Team 18 เรียบร้อยแล้ว</div>
-        </div>
-      </div>
-
-      <!-- Feed Card (Filter & List) -->
-      <div class="feed-card">
-        
-        <div class="feed-toolbar">
-          <div class="filter-group">
-            <button class="filter-btn active" data-filter="all" data-i18n="filter_all">ทั้งหมด</button>
-            <button class="filter-btn" data-filter="unread" data-i18n="filter_unread">ยังไม่ได้อ่าน</button>
-            <button class="filter-btn" data-filter="job_board">Job Board</button>
-          </div>
-
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <div class="search-box">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input type="text" id="search-input" placeholder="ค้นหาการแจ้งเตือน..." data-i18n-ph="search_placeholder">
-            </div>
-
-            <button class="btn-small" onclick="markAllAsRead()" data-i18n="mark_all_read">อ่านทั้งหมด</button>
-          </div>
-        </div>
-
-        <!-- Notification List Rows -->
-        <div id="notifications-container">
-          <!-- Rendered by JS -->
-        </div>
-
-      </div>
-
-    </section>
-
-    <!-- ==========================================
-         STUDENT PANE 2: SETTINGS & PREFERENCES
-         ========================================== -->
-    <section class="pane" id="pane-settings">
-      
-      <div class="feed-card" style="max-width: 680px; padding: 20px;">
-        <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 4px;" data-i18n="pref_title">ตั้งค่าการรับการแจ้งเตือน (Notification Preferences)</h3>
-        <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 20px;" data-i18n="pref_desc">
-          สำหรับนักศึกษา: กำหนดช่องทางที่ต้องการรับข้อความและช่วงเวลาห้ามรบกวน (Quiet Hours)
-        </p>
-
-        <div style="display: flex; flex-direction: column; gap: 14px;">
-          <label style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fafafa; border: 1px solid var(--border-light); border-radius: 6px; cursor: pointer;">
-            <div>
-              <div style="font-weight: 600; font-size: 13px;" data-i18n="pref_inapp_title">การแจ้งเตือนในแอป (In-App Channel)</div>
-              <div style="font-size: 12px; color: var(--text-sub);" data-i18n="pref_inapp_desc">แสดงการแจ้งเตือนแบบเรียลไทม์ในระบบ Notification Hub</div>
-            </div>
-            <input type="checkbox" id="pref-in-app" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
-          </label>
-
-          <label style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fafafa; border: 1px solid var(--border-light); border-radius: 6px; cursor: pointer;">
-            <div>
-              <div style="font-weight: 600; font-size: 13px;" data-i18n="pref_email_title">ส่งแจ้งเตือนทางอีเมล (Email Channel)</div>
-              <div style="font-size: 12px; color: var(--text-sub);" data-i18n="pref_email_desc">ส่งสรุปและแจ้งเตือนด่วนไปยังอีเมลนักศึกษา (@lamduan.mfu.ac.th)</div>
-            </div>
-            <input type="checkbox" id="pref-email" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
-          </label>
-
-          <label style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fafafa; border: 1px solid var(--border-light); border-radius: 6px; cursor: pointer;">
-            <div>
-              <div style="font-weight: 600; font-size: 13px;" data-i18n="pref_quiet_title">ช่วงเวลาห้ามรบกวน (Quiet Hours: 22:00 - 08:00)</div>
-              <div style="font-size: 12px; color: var(--text-sub);" data-i18n="pref_quiet_desc">พักการแจ้งเตือนทั่วไปในช่วงเวลากลางคืน (BR-03 / BR-04)</div>
-            </div>
-            <input type="checkbox" id="pref-quiet" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
-          </label>
-
-          <button class="btn-submit" onclick="savePreferences()" style="width: 100%; margin-top: 8px;" data-i18n="pref_save_btn">
-            บันทึกการตั้งค่า (Save Preferences)
-          </button>
-        </div>
-      </div>
-
-    </section>
 
     <!-- ==========================================
          ADMIN PANE 1: SYSTEM HEALTH & INTEGRATIONS
          ========================================== -->
-    <section class="pane" id="pane-admin-overview">
+    <section class="pane active" id="pane-admin-overview">
       
       <!-- Admin KPI Stats (4 Cards) -->
       <div class="overview-stats" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">

@@ -49,6 +49,7 @@
 | **6731503028** | Montatip Khumphaithoon | Quality and Security |
 | **6731503125** | Siriwimon Charoensirisoontorn | Delivery and Document |
 | **6731503105** | Thanchanok Kakaew | Product Manager |
+| **6731503105** | Thanchanok Kakaew | Product Manager |
 
 ---
 
@@ -308,7 +309,7 @@ erDiagram
 
 ## 🚀 REST API Endpoints
 
-**Base URL (Cloudflare Workers - Production):** `https://notification-hub-team20.workers.dev`  
+**Base URL (Cloudflare Workers - Production):** `https://notification-hub-team20.siriwimonchst.workers.dev`  
 **Base URL (Local Development):** `http://localhost:3000` (Node.js) or `http://localhost:8787` (Wrangler)  
 **Base URL (Backup Production - Render):** `https://notification-hub-team20.onrender.com`  
 *(All endpoints support `/api/*` prefix and root `/*` paths)*
