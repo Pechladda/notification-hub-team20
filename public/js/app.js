@@ -8,14 +8,227 @@ const API_BASE = ""; // same origin (Cloudflare Worker serves both UI & API)
 const DEFAULT_USER_ID = "student-01"; // default user to query notifications
 
 let currentRole = localStorage.getItem("nh_role") || "student";
+let currentLang = localStorage.getItem("nh_lang") || "th";
 let notifications = [];
 let recentEvents = [];
 let adminDeliveries = [];
 let currentFilter = "all";
 let searchQuery = "";
 
-document.addEventListener("DOMContentLoaded", () => {
+// ── Multi-Language Dictionary (Clean, Natural & Professional) ──
+const i18n = {
+  th: {
+    test_btn: "ทดสอบส่งการแจ้งเตือน",
+    test_btn_admin: "ส่ง Webhook จำลอง",
+    dropdown_header: "เลือกบทบาท (Role)",
+    role_student_title: "นักศึกษา (Student)",
+    role_student_sub: "กล่องแจ้งเตือนและการตั้งค่า",
+    role_admin_title: "ผู้ดูแลระบบ (Admin)",
+    role_admin_sub: "สถิติระบบ, Webhook Logs และ Retry",
+    user_student_name: "Student User",
+    user_student_role: "นักศึกษา",
+    user_admin_name: "System Operations",
+    user_admin_role: "Admin Console",
+    banner_student_title: "โหมดมุมมอง: นักศึกษา (Student Portal)",
+    banner_student_desc: "สำหรับเปิดอ่านข้อความแจ้งเตือน รับนัดหมายการสัมภาษณ์จากระบบ Job Board (Team 18) และจัดการการตั้งค่าความเป็นส่วนตัว",
+    banner_student_tag: "Student View",
+    banner_admin_title: "โหมดมุมมอง: ผู้ดูแลระบบ (Operations Console)",
+    banner_admin_desc: "สำหรับตรวจสอบสถานะ Edge System, Inbound Webhook Logs จาก Team 18, ติดตามการจัดส่ง (Deliveries) และสั่ง Retry ข้อความ",
+    banner_admin_tag: "Admin Console",
+    tab_inbox: "กล่องแจ้งเตือน (Inbox)",
+    tab_settings: "การตั้งค่า (Preferences)",
+    tab_overview: "ภาพรวมและการเชื่อมต่อ (Health & Integrations)",
+    tab_inbound_logs: "ประวัติ Webhook Logs",
+    tab_deliveries: "การจัดส่งและ Retry (Deliveries)",
+    stat_total_notifs: "การแจ้งเตือนทั้งหมด",
+    stat_from_jobboard: "จากระบบ Job Board (Team 18)",
+    stat_unread: "ยังไม่ได้อ่าน",
+    stat_awaiting_read: "รอเปิดอ่าน",
+    stat_jobboard_status: "สถานะระบบ Job Board",
+    stat_webhook_connected: "เชื่อมต่อ Webhook Team 18 เรียบร้อยแล้ว",
+    filter_all: "ทั้งหมด",
+    filter_unread: "ยังไม่ได้อ่าน",
+    search_placeholder: "ค้นหาการแจ้งเตือน...",
+    mark_all_read: "อ่านทั้งหมด",
+    pref_title: "ตั้งค่าการรับการแจ้งเตือน (Notification Preferences)",
+    pref_desc: "สำหรับนักศึกษา: กำหนดช่องทางที่ต้องการรับข้อความและช่วงเวลาห้ามรบกวน (Quiet Hours)",
+    pref_inapp_title: "การแจ้งเตือนในแอป (In-App Channel)",
+    pref_inapp_desc: "แสดงการแจ้งเตือนแบบเรียลไทม์ในระบบ Notification Hub",
+    pref_email_title: "ส่งแจ้งเตือนทางอีเมล (Email Channel)",
+    pref_email_desc: "ส่งสรุปและแจ้งเตือนด่วนไปยังอีเมลนักศึกษา (@lamduan.mfu.ac.th)",
+    pref_quiet_title: "ช่วงเวลาห้ามรบกวน (Quiet Hours: 22:00 - 08:00)",
+    pref_quiet_desc: "พักการแจ้งเตือนทั่วไปในช่วงเวลากลางคืน (BR-03 / BR-04)",
+    pref_save_btn: "บันทึกการตั้งค่า (Save Preferences)",
+    admin_stat_system: "สถานะระบบ Notification Hub",
+    admin_stat_d1: "Primary Database (Edge D1)",
+    admin_stat_events: "Inbound Webhook Events",
+    admin_stat_from_team18: "รับจาก Team 18 (Job Board)",
+    admin_stat_success: "อัตราการจัดส่งสำเร็จ (Success)",
+    integration_title: "สถาปัตยกรรมการเชื่อมต่อ: Job Board (Team 18) ↔ Notification Hub",
+    integration_desc: "Webhook Integration Specification & Endpoint Mapping",
+    connected_active: "Connected & Active",
+    endpoint_note: "รองรับ Deduplication ด้วย Unique Event ID และตรวจสอบ HMAC SHA-256",
+    callback_note: "ส่งสัญญาณตอบกลับ Callback Acknowledgment กลับไปยัง Job Board",
+    btn_check_system: "ตรวจสอบ System Health (/api/health)",
+    btn_check_db: "ตรวจสอบ Database Health (/api/health/database)",
+    btn_send_mock: "ส่ง Webhook จำลอง",
+    inbound_logs_title: "ประวัติ Inbound Webhook Logs (Event Receipts Table)",
+    inbound_logs_desc: "บันทึกทุก Event ที่ส่งเข้ามาจากภายนอก พร้อมตรวจสอบ Deduplication & Signature (PRD Event Ingestion)",
+    btn_refresh_logs: "รีเฟรช Logs",
+    deliv_stat_total: "การจัดส่งทั้งหมด (Deliveries)",
+    deliv_desc_inapp: "จัดส่งผ่านหน้าเว็บ",
+    deliv_desc_email: "จัดส่งทางอีเมล",
+    deliv_stat_failed: "สถานะล้มเหลว (Failed Deliveries)",
+    deliv_desc_retry: "รอ Retry ตามกฎ BR-07",
+    deliveries_title: "ตารางติดตามการจัดส่ง & จัดการ Retry (Deliveries Operations)",
+    deliveries_desc: "ตรวจสอบสถานะการส่งรายช่องทาง และสั่ง Retry ตามข้อกำหนด PRD (POST /notifications/:id/retry)",
+    btn_refresh_deliv: "รีเฟรช Deliveries",
+    btn_retry: "สั่ง Retry",
+    btn_details: "รายละเอียด",
+    btn_mark_read: "อ่านแล้ว",
+    btn_mark_unread: "มาร์คยังไม่อ่าน",
+    empty_notifs_title: "ไม่พบรายการแจ้งเตือน",
+    empty_notifs_desc: "ลองส่งการแจ้งเตือนจากระบบ Job Board หรือกดปุ่ม \"ทดสอบส่งการแจ้งเตือน\" ด้านบน",
+    time_just_now: "เมื่อสักครู่",
+    time_mins_ago: "นาทีที่แล้ว",
+    time_hrs_ago: "ชั่วโมงที่แล้ว",
+    time_days_ago: "วันที่แล้ว",
+  },
+  en: {
+    test_btn: "Test Notification",
+    test_btn_admin: "Simulate Webhook",
+    dropdown_header: "Select Role",
+    role_student_title: "Student",
+    role_student_sub: "Notifications & Preferences",
+    role_admin_title: "Administrator",
+    role_admin_sub: "System metrics, Webhook logs & Retry",
+    user_student_name: "Student User",
+    user_student_role: "Student",
+    user_admin_name: "System Operations",
+    user_admin_role: "Admin Console",
+    banner_student_title: "Active View: Student Portal",
+    banner_student_desc: "Notification feed, interview invitations from Job Board (Team 18), and privacy settings",
+    banner_student_tag: "Student View",
+    banner_admin_title: "Active View: Operations Console",
+    banner_admin_desc: "Edge system health monitoring, Inbound Webhook Logs from Team 18, delivery tracking, and manual retries",
+    banner_admin_tag: "Admin Console",
+    tab_inbox: "Notifications (Inbox)",
+    tab_settings: "Preferences",
+    tab_overview: "System Health & Integrations",
+    tab_inbound_logs: "Inbound Webhook Logs",
+    tab_deliveries: "Deliveries & Retry Operations",
+    stat_total_notifs: "Total Notifications",
+    stat_from_jobboard: "From Job Board (Team 18)",
+    stat_unread: "Unread",
+    stat_awaiting_read: "Awaiting review",
+    stat_jobboard_status: "Job Board Status",
+    stat_webhook_connected: "Webhook connected and active",
+    filter_all: "All",
+    filter_unread: "Unread",
+    search_placeholder: "Search notifications...",
+    mark_all_read: "Mark all as read",
+    pref_title: "Notification Preferences",
+    pref_desc: "Configure notification channels and quiet hours schedule",
+    pref_inapp_title: "In-App Channel",
+    pref_inapp_desc: "Real-time notifications inside Notification Hub",
+    pref_email_title: "Email Channel",
+    pref_email_desc: "Summary & urgent notifications sent to student email",
+    pref_quiet_title: "Quiet Hours (22:00 - 08:00)",
+    pref_quiet_desc: "Mute non-urgent notifications during nighttime (BR-03 / BR-04)",
+    pref_save_btn: "Save Preferences",
+    admin_stat_system: "Notification Hub Status",
+    admin_stat_d1: "Primary Database (Edge D1)",
+    admin_stat_events: "Inbound Webhook Events",
+    admin_stat_from_team18: "Received from Team 18",
+    admin_stat_success: "Delivery Success Rate",
+    integration_title: "Integration Architecture: Job Board (Team 18) ↔ Notification Hub",
+    integration_desc: "Webhook Integration Specification & Endpoint Mapping",
+    connected_active: "Connected & Active",
+    endpoint_note: "Supports idempotency via Unique Event ID and HMAC SHA-256 verification",
+    callback_note: "Dispatches acknowledgment callback response back to Job Board",
+    btn_check_system: "Check System Health (/api/health)",
+    btn_check_db: "Check Database Health (/api/health/database)",
+    btn_send_mock: "Simulate Webhook",
+    inbound_logs_title: "Inbound Webhook Logs (Event Receipts Table)",
+    inbound_logs_desc: "Audit trail of external webhook payloads with deduplication & signature verification",
+    btn_refresh_logs: "Refresh Logs",
+    deliv_stat_total: "Total Deliveries",
+    deliv_desc_inapp: "Dispatched via Web UI",
+    deliv_desc_email: "Dispatched via Email",
+    deliv_stat_failed: "Failed Deliveries",
+    deliv_desc_retry: "Eligible for retry (BR-07)",
+    deliveries_title: "Delivery Tracking & Retry Operations",
+    deliveries_desc: "Channel-level delivery inspection and fail-safe retry trigger (POST /notifications/:id/retry)",
+    btn_refresh_deliv: "Refresh Deliveries",
+    btn_retry: "Retry",
+    btn_details: "Details",
+    btn_mark_read: "Mark Read",
+    btn_mark_unread: "Mark Unread",
+    empty_notifs_title: "No notifications found",
+    empty_notifs_desc: "Trigger a test notification from Job Board or click the button above",
+    time_just_now: "Just now",
+    time_mins_ago: "m ago",
+    time_hrs_ago: "h ago",
+    time_days_ago: "d ago",
+  }
+};
+
+function applyLanguage() {
+  const dict = i18n[currentLang] || i18n.th;
+
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    if (dict[key]) el.textContent = dict[key];
+  });
+
+  document.querySelectorAll("[data-i18n-ph]").forEach((el) => {
+    const key = el.getAttribute("data-i18n-ph");
+    if (dict[key]) el.setAttribute("placeholder", dict[key]);
+  });
+
+  const btnTh = document.getElementById("lang-btn-th");
+  const btnEn = document.getElementById("lang-btn-en");
+  if (btnTh && btnEn) {
+    if (currentLang === "th") {
+      btnTh.classList.add("active");
+      btnEn.classList.remove("active");
+    } else {
+      btnEn.classList.add("active");
+      btnTh.classList.remove("active");
+    }
+  }
+
+  // Update dynamic elements
   switchRole(currentRole);
+}
+
+function switchLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem("nh_lang", lang);
+  applyLanguage();
+}
+
+function toggleUserDropdown(e) {
+  e.stopPropagation();
+  const dropdown = document.getElementById("user-dropdown-container");
+  if (dropdown) dropdown.classList.toggle("open");
+}
+
+function selectRole(role) {
+  switchRole(role);
+  const dropdown = document.getElementById("user-dropdown-container");
+  if (dropdown) dropdown.classList.remove("open");
+}
+
+document.addEventListener("click", (e) => {
+  const dropdown = document.getElementById("user-dropdown-container");
+  if (dropdown && !dropdown.contains(e.target)) {
+    dropdown.classList.remove("open");
+  }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  applyLanguage();
   initFilters();
   initSearch();
   fetchNotifications(); // load from real API
@@ -121,31 +334,49 @@ function mapApiNotification(n) {
   };
 }
 
-/** Simple relative time formatter */
+/** Simple relative time formatter (Localized) */
 function timeAgo(isoStr) {
   if (!isoStr) return "—";
+  const dict = i18n[currentLang] || i18n.th;
   const diff = Date.now() - new Date(isoStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "เมื่อสักครู่";
-  if (mins < 60) return `${mins} นาทีที่แล้ว`;
+  if (mins < 1) return dict.time_just_now;
+  if (mins < 60) return `${mins} ${dict.time_mins_ago}`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} ชั่วโมงที่แล้ว`;
+  if (hrs < 24) return `${hrs} ${dict.time_hrs_ago}`;
   const days = Math.floor(hrs / 24);
-  return `${days} วันที่แล้ว`;
+  return `${days} ${dict.time_days_ago}`;
 }
 
 /* ==========================================================================
-   Multi-Role Navigation & Switching (Student vs Admin)
+   Multi-Role Navigation & Switching (Student vs Admin, No Emojis)
    ========================================================================== */
 function switchRole(role) {
   currentRole = role;
   localStorage.setItem("nh_role", role);
   document.body.setAttribute("data-role", role);
 
-  const btnStudent = document.getElementById("role-btn-student");
-  const btnAdmin = document.getElementById("role-btn-admin");
+  const dict = i18n[currentLang] || i18n.th;
+
+  // Dropdown checkmark state
+  const checkStudent = document.getElementById("check-student");
+  const checkAdmin = document.getElementById("check-admin");
+  const itemStudent = document.getElementById("role-item-student");
+  const itemAdmin = document.getElementById("role-item-admin");
+
+  if (role === "student") {
+    if (checkStudent) checkStudent.style.visibility = "visible";
+    if (checkAdmin) checkAdmin.style.visibility = "hidden";
+    if (itemStudent) itemStudent.classList.add("active");
+    if (itemAdmin) itemAdmin.classList.remove("active");
+  } else {
+    if (checkStudent) checkStudent.style.visibility = "hidden";
+    if (checkAdmin) checkAdmin.style.visibility = "visible";
+    if (itemStudent) itemStudent.classList.remove("active");
+    if (itemAdmin) itemAdmin.classList.add("active");
+  }
+
   const banner = document.getElementById("role-banner");
-  const bannerIcon = document.getElementById("role-banner-icon");
   const bannerTitle = document.getElementById("role-banner-title");
   const bannerDesc = document.getElementById("role-banner-desc");
   const bannerTag = document.getElementById("role-banner-tag");
@@ -156,48 +387,40 @@ function switchRole(role) {
   const roleDesc = document.getElementById("user-role-desc");
 
   if (role === "student") {
-    if (btnStudent) btnStudent.classList.add("active");
-    if (btnAdmin) btnAdmin.classList.remove("active", "role-admin");
-
     if (banner) {
       banner.className = "role-banner student";
-      if (bannerIcon) bannerIcon.innerText = "🎓";
-      if (bannerTitle) bannerTitle.innerText = "โหมดมุมมอง: นักศึกษา (Student Portal)";
-      if (bannerDesc) bannerDesc.innerText = "สำหรับเปิดอ่านข้อความแจ้งเตือน รับนัดหมายการสัมภาษณ์จากระบบ Job Board (Team 18) และจัดการการตั้งค่าความเป็นส่วนตัว";
-      if (bannerTag) bannerTag.innerText = "Student View";
+      if (bannerTitle) bannerTitle.textContent = dict.banner_student_title;
+      if (bannerDesc) bannerDesc.textContent = dict.banner_student_desc;
+      if (bannerTag) bannerTag.textContent = dict.banner_student_tag;
     }
 
-    if (actionLabel) actionLabel.innerText = "ทดสอบส่งการแจ้งเตือน";
+    if (actionLabel) actionLabel.textContent = dict.test_btn;
     if (avatar) {
       avatar.innerText = "ST";
       avatar.style.background = "var(--primary-soft)";
       avatar.style.color = "var(--primary)";
     }
-    if (userName) userName.innerText = "Student User";
-    if (roleDesc) roleDesc.innerText = "student-01 • นักศึกษา";
+    if (userName) userName.innerText = dict.user_student_name;
+    if (roleDesc) roleDesc.innerText = dict.user_student_role;
 
     renderRoleTabs();
     activatePane("inbox");
   } else {
-    if (btnStudent) btnStudent.classList.remove("active");
-    if (btnAdmin) btnAdmin.classList.add("active", "role-admin");
-
     if (banner) {
       banner.className = "role-banner admin";
-      if (bannerIcon) bannerIcon.innerText = "🛡️";
-      if (bannerTitle) bannerTitle.innerText = "โหมดมุมมอง: ผู้ดูแลระบบ (Operations Console)";
-      if (bannerDesc) bannerDesc.innerText = "สำหรับตรวจสอบสถานะ Edge System, Inbound Webhook Logs จาก Team 18, ติดตามการจัดส่ง (Deliveries) และสั่ง Retry ข้อความ";
-      if (bannerTag) bannerTag.innerText = "Admin Console";
+      if (bannerTitle) bannerTitle.textContent = dict.banner_admin_title;
+      if (bannerDesc) bannerDesc.textContent = dict.banner_admin_desc;
+      if (bannerTag) bannerTag.textContent = dict.banner_admin_tag;
     }
 
-    if (actionLabel) actionLabel.innerText = "⚡ ส่ง Webhook จำลอง";
+    if (actionLabel) actionLabel.textContent = dict.test_btn_admin;
     if (avatar) {
       avatar.innerText = "AD";
-      avatar.style.background = "#ffedd5";
-      avatar.style.color = "#c2410c";
+      avatar.style.background = "#e0f2fe";
+      avatar.style.color = "#0369a1";
     }
-    if (userName) userName.innerText = "System Operations";
-    if (roleDesc) roleDesc.innerText = "Admin Console • Root";
+    if (userName) userName.innerText = dict.user_admin_name;
+    if (roleDesc) roleDesc.innerText = dict.user_admin_role;
 
     renderRoleTabs();
     activatePane("admin-overview");
@@ -211,29 +434,30 @@ function switchRole(role) {
 function renderRoleTabs() {
   const container = document.getElementById("portal-tabs-container");
   if (!container) return;
+  const dict = i18n[currentLang] || i18n.th;
 
   if (currentRole === "student") {
     const unread = notifications.filter((n) => !n.read).length;
     container.innerHTML = `
       <button class="portal-tab active" data-pane="inbox">
-        <span>กล่องแจ้งเตือน (Inbox)</span>
+        <span>${dict.tab_inbox}</span>
         <span class="tab-badge" id="unread-count-badge">${unread}</span>
       </button>
       <button class="portal-tab" data-pane="settings">
-        <span>การตั้งค่า (Preferences)</span>
+        <span>${dict.tab_settings}</span>
       </button>
     `;
   } else {
     container.innerHTML = `
       <button class="portal-tab active" data-pane="admin-overview">
-        <span>📊 ภาพรวม & การเชื่อมต่อ (Health & Integrations)</span>
+        <span>${dict.tab_overview}</span>
       </button>
       <button class="portal-tab" data-pane="admin-events">
-        <span>⚡ Inbound Webhook Logs</span>
+        <span>${dict.tab_inbound_logs}</span>
         <span class="tab-badge" id="admin-events-badge">${recentEvents.length}</span>
       </button>
       <button class="portal-tab" data-pane="admin-deliveries">
-        <span>🚚 การจัดส่ง & จัดการ Retry (Deliveries)</span>
+        <span>${dict.tab_deliveries}</span>
       </button>
     `;
   }
@@ -315,12 +539,14 @@ function renderNotifications() {
     return true;
   });
 
+  const dict = i18n[currentLang] || i18n.th;
+
   if (filtered.length === 0) {
     container.innerHTML = `
       <div style="padding: 40px; text-align: center; color: var(--text-light);">
-        <p style="font-size: 13px;">ไม่พบรายการแจ้งเตือน</p>
+        <p style="font-size: 13px;">${dict.empty_notifs_title}</p>
         <p style="font-size: 12px; margin-top: 6px; color: var(--text-light);">
-          ลองส่งการแจ้งเตือนจากระบบ Job Board หรือกดปุ่ม "ทดสอบส่งการแจ้งเตือน" ด้านบน
+          ${dict.empty_notifs_desc}
         </p>
       </div>
     `;
@@ -336,18 +562,18 @@ function renderNotifications() {
           <div class="notif-main">
             <div class="notif-meta-row">
               <span class="badge-source badge-job">Job Board</span>
-              <span class="badge-priority ${priClass}">${item.severity}</span>
-              <span class="notif-time">${item.timeAgo || "เมื่อสักครู่"}</span>
+              <span class="badge-priority ${priClass}">${item.severity.toUpperCase()}</span>
+              <span class="notif-time">${item.timeAgo || dict.time_just_now}</span>
             </div>
-            <div class="notif-heading">${item.title}</div>
-            <div class="notif-preview">${item.message}</div>
+            <div class="notif-heading">${escapeHtml(item.title)}</div>
+            <div class="notif-preview">${escapeHtml(item.message)}</div>
           </div>
           <div class="notif-actions" onclick="event.stopPropagation()">
             <button class="btn-small" onclick="toggleReadStatus('${item.id}')">
-              ${item.read ? "มาร์คยังไม่อ่าน" : "อ่านแล้ว"}
+              ${item.read ? dict.btn_mark_unread : dict.btn_mark_read}
             </button>
             <button class="btn-small" onclick="viewDetail('${item.id}')">
-              รายละเอียด
+              ${dict.btn_details}
             </button>
           </div>
         </div>
@@ -822,17 +1048,19 @@ function renderAdminDeliveriesTable() {
     return;
   }
 
+  const dict = i18n[currentLang] || i18n.th;
+
   container.innerHTML = `
     <table class="admin-table">
       <thead>
         <tr>
           <th>Delivery ID</th>
-          <th>ช่องทาง (Channel)</th>
-          <th>สถานะการจัดส่ง</th>
-          <th>ครั้งที่ส่ง (Attempts)</th>
-          <th>การแจ้งเตือนเป้าหมาย</th>
-          <th>เวลา</th>
-          <th>การดำเนินการ (Action)</th>
+          <th>Channel</th>
+          <th>Status</th>
+          <th>Attempts</th>
+          <th>Target Notification</th>
+          <th>Timestamp</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody>
@@ -840,19 +1068,19 @@ function renderAdminDeliveriesTable() {
           .map((d) => {
             const statusClass =
               d.status === "delivered" ? "success" : d.status === "pending" ? "pending" : "failed";
-            const channelIcon = d.channel === "in_app" ? "📱 In-App" : "📧 Email";
+            const channelLabel = d.channel === "in_app" ? "In-App" : "Email";
 
             return `
               <tr>
                 <td><code class="admin-code">${d.id.slice(0, 16)}...</code></td>
-                <td><span class="admin-badge channel">${channelIcon}</span></td>
-                <td><span class="admin-badge ${statusClass}">● ${d.status.toUpperCase()}</span></td>
+                <td><span class="admin-badge channel">${channelLabel}</span></td>
+                <td><span class="admin-badge ${statusClass}">${d.status.toUpperCase()}</span></td>
                 <td><strong>${d.attempt_count || 1}</strong></td>
                 <td><div style="max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;">${escapeHtml(d.notification_title || "Notification #" + d.notification_id.slice(0, 8))}</div></td>
                 <td style="font-size: 11px; color: var(--text-sub);">${d.created_at ? new Date(d.created_at).toLocaleTimeString("th-TH") : "-"}</td>
                 <td>
                   <button class="btn-small" onclick="retryDelivery('${d.notification_id}', '${d.id}')">
-                    🔄 สั่ง Retry
+                    ${dict.btn_retry}
                   </button>
                 </td>
               </tr>
@@ -871,7 +1099,7 @@ async function retryDelivery(notificationId, deliveryId) {
     });
     const data = await res.json();
     if (res.ok) {
-      showToast(`สั่ง Retry การจัดส่ง #${deliveryId.slice(0, 8)} สำเร็จ`);
+      showToast(`Retry queued for delivery #${deliveryId.slice(0, 8)}`);
       await loadAdminDeliveries();
     } else {
       const found = adminDeliveries.find((d) => d.id === deliveryId);
@@ -879,13 +1107,13 @@ async function retryDelivery(notificationId, deliveryId) {
         found.attempt_count = (found.attempt_count || 1) + 1;
         found.status = "delivered";
         renderAdminDeliveriesTable();
-        showToast(`จำลองสั่ง Retry การจัดส่ง #${deliveryId.slice(0, 8)} สำเร็จ (Attempt ${found.attempt_count})`);
+        showToast(`Simulated retry for delivery #${deliveryId.slice(0, 8)} (Attempt ${found.attempt_count})`);
       } else {
-        showToast(`เกิดข้อผิดพลาด: ${data.error || "ไม่สามารถ Retry ได้"}`);
+        showToast(`Error: ${data.error || "Cannot retry delivery"}`);
       }
     }
   } catch (err) {
-    showToast(`เชื่อมต่อ API สำเร็จ: ทำการ Re-queue Delivery เรียบร้อยแล้ว`);
+    showToast(`Delivery re-queued successfully`);
   }
 }
 
@@ -896,7 +1124,7 @@ function renderAdminEventsTable() {
   if (recentEvents.length === 0) {
     container.innerHTML = `
       <div style="padding: 30px; text-align: center; color: var(--text-light); font-size: 13px;">
-        ยังไม่มี Inbound Webhook Logs ในระบบ
+        No inbound webhook logs in system
       </div>
     `;
     return;
@@ -908,10 +1136,10 @@ function renderAdminEventsTable() {
         <tr>
           <th>Event ID</th>
           <th>Service & Event Type</th>
-          <th>การตรวจสอบความปลอดภัย</th>
-          <th>สถานะ Deduplication</th>
-          <th>หัวข้อที่สร้าง (Notification)</th>
-          <th>เวลาที่ได้รับ</th>
+          <th>Security Verification</th>
+          <th>Deduplication Status</th>
+          <th>Generated Notification</th>
+          <th>Received At</th>
           <th>Raw Payload</th>
         </tr>
       </thead>
@@ -924,13 +1152,13 @@ function renderAdminEventsTable() {
                 <span class="badge-source badge-job">Job Board</span>
                 <code class="admin-code" style="color: var(--primary); font-weight: 600;">${escapeHtml(e.eventType)}</code>
               </td>
-              <td><span class="admin-badge success">✓ HMAC SHA-256</span></td>
-              <td><span class="admin-badge success">✓ ${e.status || "accepted"}</span></td>
+              <td><span class="admin-badge success">HMAC SHA-256</span></td>
+              <td><span class="admin-badge success">${(e.status || "accepted").toUpperCase()}</span></td>
               <td><div style="max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;">${escapeHtml(e.title)}</div></td>
               <td style="font-size: 11px; color: var(--text-sub);">${e.timestamp}</td>
               <td>
                 <button class="btn-small" onclick="viewEventDetail('${e.id}')">
-                  🔍 ดู JSON
+                  ${currentLang === "th" ? "ดู JSON" : "View JSON"}
                 </button>
               </td>
             </tr>
@@ -945,9 +1173,9 @@ async function checkSystemHealth() {
   try {
     const res = await fetch(`${API_BASE}/api/health`);
     const data = await res.json();
-    showToast(`🟢 System Health: Status ${data.status.toUpperCase()} (${data.platform || "Cloudflare Workers"})`);
+    showToast(`System Health: Status ${data.status.toUpperCase()} (${data.platform || "Cloudflare Workers"})`);
   } catch {
-    showToast("🟢 System Health: Cloudflare Workers Online (< 5ms cold start)");
+    showToast("System Health: Cloudflare Workers Online (< 5ms cold start)");
   }
 }
 
@@ -955,9 +1183,9 @@ async function checkDbHealth() {
   try {
     const res = await fetch(`${API_BASE}/api/health/database`);
     const data = await res.json();
-    showToast(`🗄️ Database Health: ${data.engine || "Cloudflare D1"} Status: ${data.status.toUpperCase()}`);
+    showToast(`Database Health: ${data.engine || "Cloudflare D1"} Status: ${data.status.toUpperCase()}`);
   } catch {
-    showToast("🗄️ Database Health: Cloudflare D1 (SQLite Edge) Active");
+    showToast("Database Health: Cloudflare D1 (SQLite Edge) Active");
   }
 }
 

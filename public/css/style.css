@@ -724,85 +724,202 @@ body {
 .pane.active { display: block; }
 
 /* ==========================================================================
-   Role Switcher & Multi-Role Architecture (Student vs Admin)
+   User Profile Dropdown & Language Switcher (Clean & Professional)
    ========================================================================== */
-.role-switcher {
+.lang-switcher {
   display: inline-flex;
   align-items: center;
-  background: var(--bg-subtle);
+  background: #ffffff;
   border: 1px solid var(--border-light);
-  border-radius: 20px;
-  padding: 3px;
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
   gap: 3px;
 }
 
-.role-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 16px;
+.lang-btn {
+  background: none;
   border: none;
-  background: transparent;
-  color: var(--text-sub);
   font-size: 12px;
   font-weight: 500;
+  color: var(--text-sub);
   cursor: pointer;
-  transition: all 0.2s ease;
+  padding: 3px 6px;
+  border-radius: 4px;
   font-family: inherit;
+  transition: all 0.15s ease;
 }
 
-.role-btn:hover {
+.lang-btn:hover {
   color: var(--text-main);
 }
 
-.role-btn.active {
-  background: #ffffff;
+.lang-btn.active {
+  background: var(--bg-subtle);
   color: var(--primary);
+  font-weight: 700;
+}
+
+.lang-divider {
+  font-size: 11px;
+  color: var(--border-light);
+}
+
+/* User Profile Dropdown Button */
+.user-dropdown-container {
+  position: relative;
+  display: inline-block;
+}
+
+.user-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  text-align: left;
+}
+
+.user-profile-btn:hover {
+  background: var(--bg-subtle);
+  border-color: #cbd5e1;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-size: 13px;
+  color: var(--text-main);
+  line-height: 1.2;
 }
 
-.role-btn.active.role-admin {
-  color: #7c2d12;
-  background: #fff7ed;
+.user-role {
+  font-size: 11px;
+  color: var(--text-sub);
+  line-height: 1.2;
+  margin-top: 2px;
 }
 
-/* Role Context Banner */
+.dropdown-chevron {
+  color: var(--text-light);
+  margin-left: 4px;
+  transition: transform 0.2s ease;
+}
+
+.user-dropdown-container.open .dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+/* User Dropdown Menu Card */
+.user-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 250px;
+  background: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  z-index: 100;
+  display: none;
+  padding: 6px;
+}
+
+.user-dropdown-container.open .user-dropdown-menu {
+  display: block;
+  animation: dropdownFadeIn 0.15s ease-out;
+}
+
+@keyframes dropdownFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdown-header {
+  padding: 8px 12px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 4px;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.dropdown-item:hover {
+  background: var(--bg-subtle);
+}
+
+.dropdown-item.active {
+  background: var(--primary-soft);
+}
+
+.dropdown-item-check {
+  width: 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  text-align: center;
+}
+
+.dropdown-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.dropdown-item-sub {
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+/* Role Context Banner (Clean & Subtle, No Emojis) */
 .role-banner {
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: space-between;
+  gap: 16px;
   padding: 12px 18px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   margin-bottom: 20px;
   border: 1px solid var(--border-light);
   background: #ffffff;
-  transition: all 0.2s ease;
 }
 
 .role-banner.student {
-  border-left: 4px solid var(--primary);
-  background: #f8fafc;
+  border-left: 3px solid var(--primary);
 }
 
 .role-banner.admin {
-  border-left: 4px solid #ea580c;
-  background: #fffaf5;
-}
-
-.role-banner-icon {
-  font-size: 24px;
-  flex-shrink: 0;
-}
-
-.role-banner-text {
-  flex: 1;
+  border-left: 3px solid #0284c7;
 }
 
 .role-banner-title {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-main);
   margin-bottom: 2px;
 }
@@ -817,9 +934,10 @@ body {
   font-size: 11px;
   font-weight: 600;
   padding: 3px 10px;
-  border-radius: 12px;
+  border-radius: 4px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 
 .role-banner.student .role-banner-tag {
@@ -828,8 +946,8 @@ body {
 }
 
 .role-banner.admin .role-banner-tag {
-  background: #ffedd5;
-  color: #c2410c;
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 /* Admin Table Styles */
