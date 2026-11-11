@@ -49,7 +49,7 @@
 | **6731503028** | Montatip Khumphaithoon | Quality and Security |
 | **6731503125** | Siriwimon Charoensirisoontorn | Delivery and Document |
 | **6731503105** | Thanchanok Kakaew | Product Manager |
-| **6731503105** | Thanchanok Kakaew | Product Manager |
+
 
 ---
 
